@@ -1,0 +1,210 @@
+/* Shared by Splash (0-1) and LoadingScreen (2). */
+
+.cloud {
+  animation: drift linear infinite;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(var(--from));
+  }
+  to {
+    transform: translateX(var(--to));
+  }
+}
+
+/* plane waypoints */
+.wp .o {
+  fill: var(--forest);
+  stroke: var(--on-forest-sub);
+  stroke-width: 1.8;
+  transition: fill 0.3s, stroke 0.3s;
+}
+.wp .i {
+  fill: var(--on-forest-sub);
+  transition: fill 0.3s;
+}
+.wp.lit .o {
+  fill: var(--mango);
+  stroke: var(--mango);
+}
+.wp.lit .i {
+  fill: var(--forest);
+}
+
+/* road */
+.lane {
+  animation: lane 0.9s linear infinite;
+}
+
+@keyframes lane {
+  to {
+    stroke-dashoffset: 32;
+  }
+}
+
+.stop circle {
+  fill: var(--forest);
+  stroke: var(--on-forest);
+  stroke-width: 2.5;
+  transition: fill 0.3s;
+}
+.stop text {
+  fill: var(--mango);
+  font: 800 12px var(--font);
+  transition: fill 0.3s;
+}
+.stop.lit circle {
+  fill: var(--mango);
+}
+.stop.lit text {
+  fill: var(--forest);
+}
+
+@keyframes blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.3;
+  }
+}
+
+/* ---------- 0-1 splash ---------- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  max-width: 430px;
+  margin: 0 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding-bottom: 80px;
+  border: 0;
+  background: var(--forest);
+  color: var(--on-forest);
+  transition: opacity 0.4s ease;
+}
+.splash.leaving {
+  opacity: 0;
+}
+.splash-sky {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 390 / 320;
+  pointer-events: none;
+}
+.splash .logo {
+  position: relative;
+  font-size: 42px;
+  color: var(--on-forest);
+}
+.splash-flight {
+  position: relative;
+  display: block;
+  width: 218px;
+  aspect-ratio: 200 / 64;
+  overflow: visible;
+}
+.splash-tagline {
+  position: relative;
+  margin: 0;
+  font-size: 15px;
+  color: var(--on-forest-sub);
+}
+.splash .fade {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.splash.ready .fade {
+  opacity: 1;
+  transform: none;
+}
+.splash.ready .splash-tagline {
+  transition-delay: 0.35s;
+}
+
+/* ---------- 2 loading ---------- */
+.loading {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--forest);
+  color: var(--on-forest);
+}
+.loading .icon-btn {
+  color: var(--on-forest);
+}
+.loading-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 28px 40px;
+}
+.loading-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 334 / 200;
+  overflow: visible;
+}
+.loading .title {
+  margin: 44px 0 40px;
+  color: var(--on-forest);
+}
+.loading-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--forest-line);
+}
+.loading-steps li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--forest-line);
+  font-size: 15px;
+  color: var(--on-forest-sub);
+}
+.loading-steps .l {
+  flex: 1;
+}
+.loading-steps .st {
+  font-size: 13px;
+}
+.loading-steps li.done .l {
+  color: var(--on-forest);
+}
+.loading-steps li.active .n,
+.loading-steps li.active .st {
+  color: var(--mango);
+}
+.loading-steps li.active .l {
+  color: var(--on-forest);
+  font-weight: 700;
+}
+.loading-steps li.active .st {
+  animation: blink 1s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud,
+  .lane,
+  .loading-steps li.active .st {
+    animation: none;
+  }
+  .cloud {
+    transform: translateX(calc((var(--from) + var(--to)) / 2));
+  }
+  .splash .fade,
+  .splash {
+    transition: none;
+  }
+}

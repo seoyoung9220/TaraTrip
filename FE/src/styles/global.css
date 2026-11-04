@@ -1,24 +1,38 @@
-/* Design tokens: same values as the wireframes (design/figma-plugin) */
+/* Design tokens: same values as the wireframes (design/figma-plugin/code.js `C`) */
 :root {
   --ink: #191b1f;
   --sub: #6b7079;
   --body: #4a4f57;
   --hint: #8b9098;
   --line: #e3e5e8;
+  --divider: #f0f1f3;
   --soft: #f5f6f8;
   --white: #ffffff;
-  --pri: #0b7a6c;
-  --pri-soft: #e4f3f0;
-  --pri-ink: #075a50;
-  --warn: #c2410c;
-  --warn-bg: #fff3ec;
+
+  --forest: #17362e;
+  --forest-mid: #3e6457;
+  --forest-line: #2c5247;
+  --forest-deep: #0f2a23;
+  --on-forest: #f3f1ea;
+  --on-forest-sub: #93ada3;
+  --ticket-sub: #a9c2b8;
+
+  --mango: #f4a836;
+  --mango-soft: #fdf0d8;
+  --mango-ink: #7a4700;
+  --mango-deep: #a35f00;
+  --warm-text: #3b2a10;
+
+  --map: #e6eae2;
+  --photo: #eef0f2;
+  --photo-icon: #9aa0a8;
 
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 20px;
   --radius-sheet: 24px;
 
-  --font: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  --font: 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
 }
 
 *,
@@ -44,14 +58,166 @@ textarea {
   color: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
 a {
-  color: var(--pri);
+  color: var(--forest);
+}
+
+:focus-visible {
+  outline: 2px solid var(--mango);
+  outline-offset: 2px;
 }
 
 /* Mobile-first: phone width column, centered on desktop */
 .app {
+  position: relative;
   max-width: 430px;
   min-height: 100dvh;
   margin: 0 auto;
   background: var(--white);
+}
+
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--forest);
+}
+
+.logo b {
+  font-weight: 800;
+  color: var(--mango);
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.38;
+  white-space: pre-line;
+}
+
+.body-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--body);
+}
+
+.label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sub);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-primary {
+  background: var(--forest);
+  color: var(--white);
+}
+
+.btn-soft {
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.btn-text {
+  height: 44px;
+  background: none;
+  color: var(--sub);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+}
+
+.icon-btn.floating {
+  background: var(--white);
+  box-shadow: 0 4px 14px rgba(25, 27, 31, 0.14);
+}
+
+.chip {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: var(--white);
+  font-weight: 600;
+}
+
+/* Sticky bottom action area */
+.footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--white) 28%);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 8px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
