@@ -93,6 +93,7 @@ TaraTrip/
 ├── AI/     # Recommendation logic (rules + LLM)
 ├── FE/     # Frontend
 ├── BE/     # Backend (server, DB, APIs)
+├── design/ # Wireframes (Figma plugin that draws the traveler screens)
 └── docs/   # API spec and shared docs
 ```
 

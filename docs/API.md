@@ -11,6 +11,7 @@ All parts are developed against this spec. Any change to it needs agreement from
 |---|---|
 | `POST /api/recommendations` | Seoyoung (API), Junwon (AI module behind it) |
 | `GET /api/places/{place_id}` | Seoyoung (API), Hyungeun (DB) |
+| `GET /api/exchange-rate` | Hyungeun |
 
 ---
 
@@ -47,6 +48,7 @@ Recommends a one-day route within the budget.
 {
   "route_id": "string",
   "total_cost": 920,
+  "total_minutes": 330,
   "currency": "PHP",
   "summary": "Why this route was recommended",
   "stops": [
@@ -57,9 +59,25 @@ Recommends a one-day route within the budget.
       "category": "restaurant",
       "lat": 14.6,
       "lng": 120.98,
+      "arrival_time": "10:00",
       "est_cost": 250,
       "stay_minutes": 60,
-      "cost_breakdown": { "food": 250, "entry": 0, "transport": 30 },
+      "transport": null,
+      "cost_breakdown": { "food": 250, "entry": 0, "transport": 0 },
+      "reason": "Why this stop was chosen"
+    },
+    {
+      "order": 2,
+      "place_id": "string",
+      "name": "string",
+      "category": "market",
+      "lat": 14.6,
+      "lng": 120.98,
+      "arrival_time": "11:20",
+      "est_cost": 180,
+      "stay_minutes": 60,
+      "transport": { "mode": "jeepney", "minutes": 15, "cost": 13 },
+      "cost_breakdown": { "food": 180, "entry": 0, "transport": 13 },
       "reason": "Why this stop was chosen"
     }
   ]
@@ -70,14 +88,20 @@ Recommends a one-day route within the budget.
 |---|---|---|
 | `route_id` | string | Route identifier |
 | `total_cost` | number | Sum of all stops' costs; must not exceed `budget.amount` |
+| `total_minutes` | number | Total time from the first arrival to leaving the last stop, travel included |
 | `currency` | string | `"PHP"` |
 | `summary` | string | Explanation of the whole route |
 | `stops[].order` | number | Visit order, starting at 1 |
 | `stops[].place_id` | string | ID usable with `GET /api/places/{place_id}` |
 | `stops[].category` | string | `restaurant` \| `market` \| `shop` \| `attraction` |
-| `stops[].est_cost` | number | Estimated cost at this stop |
+| `stops[].arrival_time` | string | Planned arrival, local time `HH:MM` |
+| `stops[].est_cost` | number | Estimated cost at this stop (food or entry) |
 | `stops[].stay_minutes` | number | Suggested time spent |
-| `stops[].cost_breakdown` | object | `food`, `entry`, `transport` (transport = cost to reach this stop) |
+| `stops[].transport` | object \| null | How to get here from the previous stop; `null` for the first stop |
+| `stops[].transport.mode` | string | `walk` \| `jeepney` \| `tricycle` \| `taxi` \| `other` |
+| `stops[].transport.minutes` | number | Travel time |
+| `stops[].transport.cost` | number | Fare; `0` for walking |
+| `stops[].cost_breakdown` | object | `food`, `entry`, `transport` (`transport` equals `transport.cost`) |
 | `stops[].reason` | string | Explanation for this stop |
 
 ---
@@ -95,12 +119,37 @@ Returns details for one place.
   "category": "restaurant",
   "lat": 14.6,
   "lng": 120.98,
+  "address": "string",
   "price_range": { "min": 100, "max": 300, "currency": "PHP" },
   "opening_hours": "08:00-20:00",
   "description": "string",
   "photos": ["https://..."]
 }
 ```
+
+---
+
+## GET /api/exchange-rate
+
+PHP → KRW rate for showing the KRW equivalent next to peso amounts. The server fetches it from an external rate API about once a day and caches it; the frontend never calls the external API directly.
+
+### Response `200 OK`
+
+```json
+{
+  "base": "PHP",
+  "quote": "KRW",
+  "rate": 24.1,
+  "updated_at": "2026-11-04T00:00:00Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `rate` | number | KRW per 1 PHP |
+| `updated_at` | string | When the rate was fetched (ISO 8601) |
+
+If the rate is unavailable, the frontend hides the KRW line instead of failing.
 
 ---
 
