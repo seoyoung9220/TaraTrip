@@ -1,0 +1,166 @@
+.input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+}
+
+.input-header .logo {
+  font-size: 19px;
+}
+
+.region-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 12px 20px 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--soft);
+  font-size: 16px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.textarea::placeholder,
+.amount-input::placeholder {
+  color: var(--hint);
+}
+
+.amount {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--forest);
+}
+
+.amount-sign {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.amount-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.amount-unit {
+  font-size: 14px;
+  color: var(--sub);
+}
+
+.amount-krw {
+  margin: 0;
+  font-size: 14px;
+  color: var(--sub);
+}
+
+.quick-add {
+  display: flex;
+  gap: 8px;
+}
+
+.quick {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+  color: var(--body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--soft);
+  color: var(--sub);
+  font-size: 16px;
+  text-align: left;
+}
+
+.search-field:disabled {
+  cursor: default;
+}
+
+.search-field .soon {
+  margin-left: auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.start-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.locate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--forest);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.start-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sub);
+}

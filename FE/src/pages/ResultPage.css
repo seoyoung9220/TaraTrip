@@ -1,0 +1,293 @@
+/* ---------- 3. 추천 코스 ---------- */
+.result {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.result-map {
+  position: relative;
+  height: 320px;
+  background: var(--map);
+}
+
+.route-map {
+  width: 100%;
+  height: 100%;
+  background: var(--map);
+}
+
+.map-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+}
+
+.map-pin {
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--white);
+  border-radius: 50%;
+  background: var(--forest);
+  color: var(--mango);
+  font: 800 14px var(--font);
+  box-shadow: 0 2px 8px rgba(25, 27, 31, 0.25);
+}
+
+.sheet {
+  position: relative;
+  z-index: 1000;
+  margin-top: -24px;
+  padding: 10px 20px 32px;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--white);
+}
+
+.grabber {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 18px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+/* ticket */
+.ticket {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--forest);
+  color: var(--on-forest);
+}
+
+.ticket-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 22px 10px;
+}
+
+.ticket-sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ticket-sub);
+}
+
+.ticket-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.ticket-price strong {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--mango);
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-price span {
+  font-size: 14px;
+  color: var(--ticket-sub);
+}
+
+/* Punched notches on both edges with a dashed tear line between them */
+.perforation {
+  position: relative;
+  height: 20px;
+  margin: 0 18px;
+  background: linear-gradient(to right, var(--forest-line) 50%, transparent 0) center / 10px 1.5px repeat-x;
+}
+
+.perforation::before,
+.perforation::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+}
+
+.perforation::before {
+  left: -28px;
+}
+
+.perforation::after {
+  right: -28px;
+}
+
+.ticket-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 10px 22px 22px;
+}
+
+.ticket-stats dt {
+  font-size: 12px;
+  color: var(--ticket-sub);
+}
+
+.ticket-stats dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-stats .accent {
+  color: var(--mango);
+}
+
+/* cost tiles */
+.cost-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.cost-tiles > div {
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--soft);
+}
+
+.cost-tiles dt {
+  font-size: 13px;
+  color: var(--sub);
+}
+
+.cost-tiles dd {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.why {
+  margin-top: 12px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--mango-soft);
+}
+
+.why-label {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mango-ink);
+}
+
+.why-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--warm-text);
+}
+
+/* stop list */
+.stops-heading {
+  margin: 32px 0 16px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 4px 15px;
+}
+
+.transport-line {
+  width: 2px;
+  height: 32px;
+  background: #d3d6da;
+}
+
+.transport-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--soft);
+  font-size: 13px;
+  color: var(--sub);
+}
+
+.stop-row {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.order {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--forest);
+  color: var(--mango);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.stop-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stop-meta {
+  font-size: 13px;
+  color: var(--sub);
+}
+
+.stop-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stop-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.stop-cost {
+  flex: none;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stop-reason {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sub);
+}
+
+.again {
+  height: 52px;
+  margin-top: 32px;
+}
