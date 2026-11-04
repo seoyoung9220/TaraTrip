@@ -1,2 +1,13 @@
 계획서/
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets (Supabase DB URL, API keys)
+.env
+.env.*
+!.env.example
