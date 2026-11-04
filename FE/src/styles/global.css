@@ -1,0 +1,57 @@
+/* Design tokens: same values as the wireframes (design/figma-plugin) */
+:root {
+  --ink: #191b1f;
+  --sub: #6b7079;
+  --body: #4a4f57;
+  --hint: #8b9098;
+  --line: #e3e5e8;
+  --soft: #f5f6f8;
+  --white: #ffffff;
+  --pri: #0b7a6c;
+  --pri-soft: #e4f3f0;
+  --pri-ink: #075a50;
+  --warn: #c2410c;
+  --warn-bg: #fff3ec;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-sheet: 24px;
+
+  --font: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--soft);
+  color: var(--ink);
+  font-family: var(--font);
+  letter-spacing: -0.01em;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--pri);
+}
+
+/* Mobile-first: phone width column, centered on desktop */
+.app {
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: var(--white);
+}
