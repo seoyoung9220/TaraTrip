@@ -90,16 +90,24 @@ Full-stack work is split **by feature, not by frontend/backend**. Each person bu
 
 ```
 TaraTrip/
-├── AI/   # Recommendation logic (rules + LLM)
-├── FE/   # Frontend
-└── BE/   # Backend (server, DB, APIs)
+├── AI/     # Recommendation logic (rules + LLM)
+├── FE/     # Frontend
+├── BE/     # Backend (server, DB, APIs)
+└── docs/   # API spec and shared docs
 ```
 
 Full-stack members work in both `FE/` and `BE/` on the features they own.
 
+**API spec: [docs/API.md](docs/API.md)**
+
 ## Tech Stack
 
-TBD (to be decided in Week 1)
+| Area | Choice |
+|---|---|
+| Frontend | React (Vite) + TypeScript, mobile-first |
+| Backend | FastAPI (Python), imports the AI module directly |
+| Map | Leaflet + OpenStreetMap |
+| Currency | PHP, with KRW shown alongside |
 
 ---
 
