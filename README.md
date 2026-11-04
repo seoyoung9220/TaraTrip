@@ -86,6 +86,17 @@ Full-stack work is split **by feature, not by frontend/backend**. Each person bu
 | 4 | Apply UST feedback to the logic | Integration, prototype complete | Deployment, *(stretch)* promotion assistant | User testing, validate routes |
 | 5 | Stabilize recommendations for the demo | Polish the demo scenario | Bug fixes, server stability | Provide local materials for the presentation |
 
+## Repository Structure
+
+```
+TaraTrip/
+├── AI/   # Recommendation logic (rules + LLM)
+├── FE/   # Frontend
+└── BE/   # Backend (server, DB, APIs)
+```
+
+Full-stack members work in both `FE/` and `BE/` on the features they own.
+
 ## Tech Stack
 
 TBD (to be decided in Week 1)
