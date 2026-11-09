@@ -28,19 +28,25 @@ Recommends a one-day route within the budget.
   "foods": ["local street food"],
   "attractions": ["string"],
   "start_location": { "lat": 14.6, "lng": 120.98 },
+  "travel_date": "2026-11-20",
+  "start_time": "10:00",
+  "end_time": "16:00",
   "free_text": "I want to try local food for about 1000 PHP today"
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `region` | string | yes | Target region |
+| `region` | string | yes | Target region. Matched case-insensitively against `places.district`; stops in that district come first. An unknown region is ignored (stops can come from any district) |
 | `budget.amount` | number | yes | Daily budget |
 | `budget.currency` | string | yes | `"PHP"` |
 | `foods` | string[] | no | Preferred foods |
 | `attractions` | string[] | no | Attractions the traveler wants to visit |
 | `start_location` | object | yes | Starting point (`lat`, `lng`) |
-| `free_text` | string | no | Natural-language request. The AI module parses it and merges it with the fields above |
+| `travel_date` | string | no | Trip date, `YYYY-MM-DD`. Picks that weekday's opening hours. Default: today in Manila |
+| `start_time` | string | no | Earliest time to leave `start_location`, local `HH:MM`. Default: `"10:00"` |
+| `end_time` | string | no | Time the day should end, local `HH:MM`, later than `start_time`. Default: `"16:00"` |
+| `free_text` | string | no | Natural-language request. The AI module parses it and merges it with the fields above. Form fields win when both are given; `free_text` only fills fields left out (e.g. "from 1pm" sets the times only if `start_time`/`end_time` are absent) |
 
 ### Response `200 OK`
 
