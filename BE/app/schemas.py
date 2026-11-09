@@ -1,10 +1,14 @@
 """Request/response models for docs/API.md. Keep in sync with FE/src/api/types.ts."""
-from typing import Literal
+from datetime import date
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 PlaceCategory = Literal["restaurant", "market", "shop", "attraction"]
 TransportMode = Literal["walk", "jeepney", "tricycle", "taxi", "other"]
+
+# Local time "HH:MM", 00:00–23:59. Zero-padded strings compare correctly as text.
+ClockTime = Annotated[str, Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
 
 # ── POST /api/recommendations ───────────────────────────────
@@ -25,7 +29,16 @@ class RecommendationRequest(BaseModel):
     foods: list[str] = []
     attractions: list[str] = []
     start_location: LatLng
+    travel_date: date | None = None  # "YYYY-MM-DD"; default: today in Manila (AI module)
+    start_time: ClockTime | None = None
+    end_time: ClockTime | None = None
     free_text: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _end_after_start(self) -> "RecommendationRequest":
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValueError("end_time must be later than start_time")
+        return self
 
 
 class Transport(BaseModel):

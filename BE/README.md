@@ -50,5 +50,7 @@ FE dev server proxies `/api` to `http://localhost:8000`, so run FE with `VITE_US
 
 - Loads every row of `places` and passes it with the request to `AI/recommend.py:recommend()`
 - `BudgetTooLowError` → 422 `BUDGET_TOO_LOW`, `NoResultsError` (or empty DB) → 422 `NO_RESULTS`
+- Passes `travel_date` (that weekday's opening hours) and `lang="ko"` (FE is Korean-only, so `summary`/`reason` stay Korean even for English `free_text`)
+- `start_time`/`end_time` are validated (`HH:MM`, end after start → else 400) and passed on in the request; the AI module does not read them yet
 - Runs in a worker thread with a time limit; past `AI_TIMEOUT_SECONDS` → 504 `AI_TIMEOUT`
 - The AI module's `_debug` key is dropped by the response model and logged at INFO

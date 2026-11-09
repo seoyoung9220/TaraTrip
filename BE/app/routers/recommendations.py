@@ -35,6 +35,10 @@ router = APIRouter()
 # backend has to cut it off to answer 504 AI_TIMEOUT.
 AI_TIMEOUT_SECONDS = float(os.environ.get("AI_TIMEOUT_SECONDS", "20"))
 
+# Language of `summary`, `reason` and error messages. The FE is Korean-only, so this
+# stays "ko" even when free_text is written in English.
+RESPONSE_LANG = "ko"
+
 # A timed-out call keeps running in its worker until the LLM request returns;
 # the pool size caps how many of those can pile up.
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai")
@@ -63,7 +67,14 @@ def create_recommendation(
     if not rows:
         raise ApiError(422, "NO_RESULTS", "No places in the database yet.")
 
-    future = _executor.submit(recommend, body.model_dump(), rows, **llm_clients())
+    future = _executor.submit(
+        recommend,
+        body.model_dump(mode="json"),  # docs/API.md request shape (dates as "YYYY-MM-DD")
+        rows,
+        travel_date=body.travel_date,  # picks that weekday's opening hours
+        lang=RESPONSE_LANG,
+        **llm_clients(),
+    )
     try:
         result = future.result(timeout=AI_TIMEOUT_SECONDS)
     except FutureTimeout:
