@@ -17,6 +17,7 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
   - 출발 시각이 요청에 없음 → free_text에 시간이 있으면 쓰고, 없으면 10:00~16:00
   - 첫 장소의 transport는 명세대로 null, 이동은 지금은 전부 도보(walk, 0페소)
   - summary·reason 언어: recommend(lang=...)로 넘긴 값 > free_text의 언어 > 기본 "ko" (앱 화면이 한국어)
+  - 코스 길이·식사: 최대 5곳(여유 4, 알차게 6), 먹는 곳 최대 2곳(음식 선택 시 3곳), 먹는 곳 3연속 금지
 """
 import uuid
 from datetime import date, datetime
@@ -49,6 +50,13 @@ DEFAULT_STAY = {"restaurant": 45, "market": 40, "shop": 30, "attraction": 45}
 DEFAULT_HOURS = ("09:00", "18:00")  # 영업시간이 비어 있는 장소에 쓰는 임시 값
 DEFAULT_SCORE = 5                   # DB에 local_score가 없으면 모두 같은 기본 점수
 DEFAULT_LANG = "ko"                 # 설명 문장 기본 언어 (앱 화면이 한국어). 지금 문장은 "ko"와 "en"만 있음
+
+# 코스 길이·식사 제한 (UST 피드백 보고 조정)
+MAX_STOPS = {"relaxed": 4, "normal": 5, "packed": 6}  # 페이스별 하루 최대 장소 수
+MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"으로 세는 DB 카테고리 (카페·빵집도 restaurant)
+MAX_MEALS = 2                                         # 먹는 곳 최대 개수
+MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 먹거리 위주로 요청했을 때
+MAX_MEALS_IN_ROW = 2                                  # 먹는 곳 최대 연속 (밥 → 카페까지 OK)
 
 
 # ─────────────────────────────────────────────
@@ -109,6 +117,7 @@ def to_internal_place(row, weekday):
         "stayMin": row.get("avg_stay_minutes") or DEFAULT_STAY.get(row.get("category"), 40),
         "costPhp": food + entry,
         "smallBiz": bool(row.get("is_small_business")),
+        "isMeal": row.get("category") in MEAL_CATEGORIES,
         "score": row.get("local_score") or DEFAULT_SCORE,
         "description": desc,
         # 응답 만들 때 다시 쓰는 원본 값
@@ -256,6 +265,12 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
 
     b = build_plan_input(query, places, start_location, personal)
     plan_input = b["planInput"]
+    food_lover = bool(req.get("foods")) or any(t in ("food", "cafe") for t in query["tags"])
+    plan_input["options"].update({
+        "maxStops": MAX_STOPS.get(query["pace"], MAX_STOPS["normal"]),
+        "maxMeals": MAX_MEALS_FOOD_LOVER if food_lover else MAX_MEALS,
+        "maxMealsInRow": MAX_MEALS_IN_ROW,
+    })
     route = plan_route(plan_input)
 
     if not route["stops"]:

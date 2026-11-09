@@ -112,6 +112,27 @@ def test_language():
         assert "장소" in str(e), str(e)
 
 
+def test_course_length_and_meals():
+    """코스가 너무 길거나 먹는 곳만 연달아 나오지 않는지 (서영 님 피드백)"""
+    from recommend import MAX_STOPS, MAX_MEALS, MAX_MEALS_FOOD_LOVER, MAX_MEALS_IN_ROW
+    cat = {r["place_id"]: r["category"] for r in ROWS}
+    for req, max_meals in [
+        ({**REQ, "foods": [], "attractions": []}, MAX_MEALS),
+        (REQ, MAX_MEALS_FOOD_LOVER),  # foods가 있으면 먹거리 위주
+        ({**REQ, "budget": {"amount": 5000, "currency": "PHP"}}, MAX_MEALS_FOOD_LOVER),
+    ]:
+        res = recommend(req, ROWS, travel_date=TUE)
+        check_shape(res, req["budget"]["amount"])
+        meals = [cat[s["place_id"]] in ("restaurant", "market") for s in res["stops"]]
+        assert len(res["stops"]) <= MAX_STOPS["normal"], len(res["stops"])
+        assert sum(meals) <= max_meals, meals
+        row = best = 0
+        for m in meals:
+            row = row + 1 if m else 0
+            best = max(best, row)
+        assert best <= MAX_MEALS_IN_ROW, meals
+
+
 def test_budget_too_low():
     rows = [{**r, "entry_fee": 500, "price_min": 500, "price_max": 500} for r in ROWS]
     try:

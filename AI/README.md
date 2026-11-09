@@ -53,6 +53,8 @@ def create_recommendation(body: dict, conn=Depends(get_conn)):
 | `est_cost` | 식당·시장·가게는 `price_min`~`price_max`의 가운데 값, 관광지는 `entry_fee` |
 | `summary`, `reason` 언어 | `recommend(..., lang="ko")`로 넘긴 값이 최우선. 없으면 `free_text`의 언어, 그것도 없으면 한국어. 지금 문장은 한국어·영어만 있음 |
 | 영업시간 | 여행 날짜(기본: 마닐라 기준 오늘)의 요일 값 사용. `closed`면 제외, 비어 있으면 09:00-18:00으로 가정 |
+| 코스 길이 | 하루 최대 5곳 ("여유롭게" 4곳, "알차게" 6곳). 시간·예산이 남아도 더 채우지 않음 |
+| 먹는 곳 | 식당·시장(카페·빵집 포함) 최대 2곳, 음식을 골랐거나 먹거리 위주 요청이면 3곳. 3곳 연속 금지 (밥 → 카페까지는 OK) |
 | 장소 점수 | DB에 `local_score`가 없어서 모두 5점. 컬럼이 생기면 자동으로 사용 |
 | `region` | `district`와 이름이 같으면 그 지역 우선, 아니면 무시 |
 
