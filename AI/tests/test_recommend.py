@@ -90,6 +90,28 @@ def test_llm_failure_falls_back():
     check_shape(res, 1000)
 
 
+def test_language():
+    # 1) free_text 없음 → 기본 한국어
+    res = recommend(REQ, ROWS, travel_date=TUE)
+    assert "페소" in res["summary"] and "코스" in res["summary"], res["summary"]
+    # 2) 백엔드가 lang="en"을 넘기면 영어
+    res = recommend(REQ, ROWS, travel_date=TUE, lang="en")
+    assert "route" in res["summary"], res["summary"]
+    # 3) free_text가 영어여도 lang="ko"가 우선
+    llm = lambda m: '{"budget":null,"start":"13:00","end":"18:00","tags":["food"],"areas":[],"mustVisit":[],"avoid":[],"preferenceText":"Wants food.","language":"en","isTripRequest":true}'
+    res = recommend({**REQ, "free_text": "food after lunch"}, ROWS, call_llm=llm, travel_date=TUE, lang="ko")
+    assert "코스" in res["summary"], res["summary"]
+    # 4) lang 없이 free_text가 영어면 영어
+    res = recommend({**REQ, "free_text": "food after lunch"}, ROWS, call_llm=llm, travel_date=TUE)
+    assert "route" in res["summary"], res["summary"]
+    # 5) 에러 메시지도 같은 언어
+    closed = [{**r, "opening_hours": {d: "closed" for d in DAYS}} for r in ROWS]
+    try:
+        recommend(REQ, closed, travel_date=TUE)
+    except NoResultsError as e:
+        assert "장소" in str(e), str(e)
+
+
 def test_budget_too_low():
     rows = [{**r, "entry_fee": 500, "price_min": 500, "price_max": 500} for r in ROWS]
     try:
