@@ -19,6 +19,7 @@ npm run dev                  # http://localhost:5173
 ```
 
 With `VITE_USE_MOCK=false`, `/api` requests are proxied to the FastAPI server at `http://localhost:8000` (see `vite.config.ts`).
+No database yet? Run the backend with sample places: `BE/README.md` → "Without a database".
 
 ```bash
 npm run build   # type-check + production build

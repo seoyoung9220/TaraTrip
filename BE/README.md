@@ -18,6 +18,15 @@ python -m venv .venv
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
+### Without a database
+
+`dev/fake_server.py` runs the same app with `get_conn` swapped for 10 placeholder places
+(`dev/sample_places.py`, made-up prices and hours). No `.env` needed:
+
+```powershell
+.venv\Scripts\python.exe -m uvicorn dev.fake_server:app --reload --port 8000
+```
+
 FE dev server proxies `/api` to `http://localhost:8000`, so run FE with `VITE_USE_MOCK=false` to hit this server.
 
 ## Layout
@@ -27,6 +36,7 @@ FE dev server proxies `/api` to `http://localhost:8000`, so run FE with `VITE_US
 - `app/routers/recommendations.py` – `POST /api/recommendations`; calls `recommend()` from `AI/recommend.py`
 - `app/errors.py` – `{"error": {"code", "message"}}` responses; validation errors → 400 `INVALID_REQUEST`
 - `app/db.py` – `get_conn` dependency (DATABASE_URL from `BE/.env`)
+- `dev/` – placeholder places + fake-DB server for local FE work (not for deployment)
 - `tests/` – `.venv\Scripts\python.exe -m pytest` (DB is faked, no `.env` needed)
 
 ## Place detail mapping (DB → API)
