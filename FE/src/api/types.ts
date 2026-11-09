@@ -11,6 +11,11 @@ export interface RecommendationRequest {
   foods?: string[]
   attractions?: string[]
   start_location: LatLng
+  /** YYYY-MM-DD. Picks that weekday's opening hours; backend default is today in Manila. */
+  travel_date?: string
+  /** HH:MM. Omit to let free_text (or the default 10:00–16:00) decide. */
+  start_time?: string
+  end_time?: string
   free_text?: string
 }
 
