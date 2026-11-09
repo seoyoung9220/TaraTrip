@@ -155,7 +155,7 @@ PHP → KRW rate for showing the KRW equivalent next to peso amounts. The server
 | `rate` | number | KRW per 1 PHP |
 | `updated_at` | string | When the rate was fetched (ISO 8601) |
 
-If the rate is unavailable, the frontend hides the KRW line instead of failing.
+If the server has never managed to fetch a rate, it answers `503 RATE_UNAVAILABLE`. If a later refresh fails, it keeps serving the last good rate (`updated_at` shows its age). On any error the frontend hides the KRW line instead of failing.
 
 ---
 
@@ -171,4 +171,5 @@ If the rate is unavailable, the frontend hides the KRW line instead of failing.
 | 404 | `PLACE_NOT_FOUND` | Unknown `place_id` |
 | 422 | `BUDGET_TOO_LOW` | No route fits the budget |
 | 422 | `NO_RESULTS` | No places match the request |
+| 503 | `RATE_UNAVAILABLE` | No exchange rate could be fetched yet (`GET /api/exchange-rate`) |
 | 504 | `AI_TIMEOUT` | The AI module did not respond in time |

@@ -11,6 +11,7 @@ create table if not exists places (
     category          text not null
                       check (category in ('restaurant', 'market', 'shop', 'attraction')),
     is_small_business boolean not null default false,   -- locally owned, not a chain or mall
+    local_score       smallint check (local_score between 1 and 10),  -- how strongly locals recommend it
 
     -- Location (WGS84). Required: map markers and route ordering depend on them.
     lat               double precision not null check (lat between -90 and 90),
@@ -23,6 +24,10 @@ create table if not exists places (
     price_max         integer check (price_max >= 0),   -- typical spend, high end
     entry_fee         integer not null default 0 check (entry_fee >= 0),
     check (price_min is null or price_max is null or price_min <= price_max),
+
+    signature_menu    text,                             -- dish/product the place is known for
+    signature_price   integer check (signature_price >= 0),  -- PHP, one signature_menu item
+    cash_only         boolean not null default false,   -- no card / GCash / Maya
 
     avg_stay_minutes  integer check (avg_stay_minutes > 0),
 
@@ -43,6 +48,12 @@ create table if not exists places (
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now()
 );
+
+-- Columns added after the first version: bring an existing table up to date.
+alter table places add column if not exists local_score smallint check (local_score between 1 and 10);
+alter table places add column if not exists signature_menu text;
+alter table places add column if not exists signature_price integer check (signature_price >= 0);
+alter table places add column if not exists cash_only boolean not null default false;
 
 create index if not exists places_category_idx on places (category);
 create index if not exists places_tags_idx on places using gin (tags);

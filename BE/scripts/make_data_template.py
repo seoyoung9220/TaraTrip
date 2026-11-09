@@ -31,6 +31,9 @@ COLUMNS = [
      "restaurant", "attraction"),
     ("is_small_business", True, 10, "Yes / No",
      "Yes if locally owned and not a chain, franchise or mall store.", "Yes", "No"),
+    ("local_score", True, 10, "Whole number, 1-10",
+     "How strongly locals recommend it: 1 = locals would skip it, 10 = a must-visit locals love. "
+     "Your own or local friends' judgement, not the Google rating.", 8, 7),
     ("lat", True, 11, "Decimal, e.g. 14.5995",
      "Latitude. In Google Maps, right-click the place: the first line shows 'lat, lng'. "
      "Paste the first number here.", 14.6, 14.59),
@@ -46,8 +49,15 @@ COLUMNS = [
      50, None),
     ("price_max", False, 10, "Whole number, PHP",
      "Typical spend per person, high end (a full meal or usual purchase).", 150, None),
+    ("signature_menu", False, 22, "Text",
+     "The dish or product the place is best known for. Leave empty for attractions without one.",
+     "Fresh lumpia", None),
+    ("signature_price", False, 11, "Whole number, PHP",
+     "Price of one signature_menu item. Leave empty if signature_menu is empty.", 60, None),
     ("entry_fee", True, 10, "Whole number, PHP",
      "Entrance ticket per adult. 0 if free.", 0, 75),
+    ("cash_only", True, 10, "Yes / No",
+     "Yes if the place takes cash only (no card, GCash or Maya).", "Yes", "No"),
     ("avg_stay_minutes", True, 11, "Whole number",
      "How long a tourist usually spends here, in minutes.", 30, 45),
     *[(f"hours_{d}", True, 12, "HH:MM-HH:MM or closed",
@@ -113,6 +123,10 @@ def build_places_sheet(ws):
 
     listed(CATEGORIES, "category", "category")
     listed(["Yes", "No"], "is_small_business", "is_small_business")
+    listed(["Yes", "No"], "cash_only", "cash_only")
+    add(DataValidation(type="whole", operator="between", formula1="1", formula2="10",
+                       allow_blank=True, showErrorMessage=True, errorTitle="local_score",
+                       error="Whole number from 1 to 10."), "local_score")
 
     # Metro Manila bounding box (with margin) catches swapped lat/lng and typos.
     for key, lo, hi in (("lat", 14.2, 15.0), ("lng", 120.8, 121.3)):
@@ -121,7 +135,7 @@ def build_places_sheet(ws):
                            error=f"{key} for Metro Manila should be between {lo} and {hi}. "
                                  "Did you swap lat and lng?"), key)
 
-    for key in ("price_min", "price_max", "entry_fee"):
+    for key in ("price_min", "price_max", "signature_price", "entry_fee"):
         add(DataValidation(type="whole", operator="between", formula1="0", formula2="100000",
                            allow_blank=True, showErrorMessage=True, errorTitle=key,
                            error="Whole number of pesos, 0 or more."), key)

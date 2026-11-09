@@ -34,6 +34,8 @@ FE dev server proxies `/api` to `http://localhost:8000`, so run FE with `VITE_US
 - `app/main.py` – FastAPI app; routers mounted under `/api`
 - `app/routers/places.py` – `GET /api/places/{place_id}`
 - `app/routers/recommendations.py` – `POST /api/recommendations`; calls `recommend()` from `AI/recommend.py`
+- `app/routers/exchange_rate.py` – `GET /api/exchange-rate`; PHP→KRW, cached in memory
+- `scripts/` – `apply_schema.py` (DB schema), `make_data_template.py` (UST spreadsheet), `import_places.py` (spreadsheet → DB)
 - `app/errors.py` – `{"error": {"code", "message"}}` responses; validation errors → 400 `INVALID_REQUEST`
 - `app/db.py` – `get_conn` dependency (DATABASE_URL from `BE/.env`)
 - `dev/` – placeholder places + fake-DB server for local FE work (not for deployment)
@@ -54,3 +56,25 @@ FE dev server proxies `/api` to `http://localhost:8000`, so run FE with `VITE_US
 - `start_time`/`end_time` are validated (`HH:MM`, end after start → else 400) and passed on in the request; the AI module does not read them yet
 - Runs in a worker thread with a time limit; past `AI_TIMEOUT_SECONDS` → 504 `AI_TIMEOUT`
 - The AI module's `_debug` key is dropped by the response model and logged at INFO
+
+## Importing UST data
+
+```powershell
+# from the repo root; check first, then write
+BE\.venv\Scripts\python.exe BE\scripts\apply_schema.py
+BE\.venv\Scripts\python.exe BE\scripts\import_places.py path\to\filled.xlsx --dry-run
+BE\.venv\Scripts\python.exe BE\scripts\import_places.py path\to\filled.xlsx
+```
+
+- Reads the `Places` sheet of the template; example rows (`EXAMPLE-…`) and empty rows are skipped
+- Any problem in any row → nothing is written; every problem is listed as `row N (place_id): …`
+  so the list can be sent straight back to UST
+- Upsert on `place_id`: re-importing a corrected sheet updates rows, never duplicates them.
+  Places missing from the sheet are not deleted
+
+## Exchange rate
+
+- Source: Frankfurter (ECB reference rates), fallback open.er-api.com. Both are keyless
+- Fetched at most every 12 h; on failure the last good rate is served and the sources are
+  retried after 10 min. With no rate at all → 503 `RATE_UNAVAILABLE` (FE hides the KRW line)
+- `updated_at` = when the server fetched it. The cache is per process, so a restart refetches
