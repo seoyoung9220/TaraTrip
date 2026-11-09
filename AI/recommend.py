@@ -16,6 +16,7 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
   - 폼 값(budget 등)이 free_text보다 우선, free_text는 빈 곳만 채움
   - 출발 시각이 요청에 없음 → free_text에 시간이 있으면 쓰고, 없으면 10:00~16:00
   - 첫 장소의 transport는 명세대로 null, 이동은 지금은 전부 도보(walk, 0페소)
+  - summary·reason 언어: recommend(lang=...)로 넘긴 값 > free_text의 언어 > 기본 "ko" (앱 화면이 한국어)
 """
 import uuid
 from datetime import date, datetime
@@ -47,6 +48,7 @@ TAG_OVERRIDES = [
 DEFAULT_STAY = {"restaurant": 45, "market": 40, "shop": 30, "attraction": 45}
 DEFAULT_HOURS = ("09:00", "18:00")  # 영업시간이 비어 있는 장소에 쓰는 임시 값
 DEFAULT_SCORE = 5                   # DB에 local_score가 없으면 모두 같은 기본 점수
+DEFAULT_LANG = "ko"                 # 설명 문장 기본 언어 (앱 화면이 한국어). 지금 문장은 "ko"와 "en"만 있음
 
 
 # ─────────────────────────────────────────────
@@ -142,7 +144,7 @@ def _form_raw(req, places):
         "start": None, "end": None,
         "tags": tags, "areas": areas, "mustVisit": must, "avoid": [],
         "preferenceText": " ".join(pref),
-        "language": "en", "isTripRequest": True,
+        "language": DEFAULT_LANG, "isTripRequest": True,
         "budgetLevel": None, "budgetPer": "person", "groupSize": None, "pace": None, "walking": None,
     }
 
@@ -163,7 +165,7 @@ def build_query(req, places, call_llm):
                 raw["budget"] = form["budget"]      # 예산은 항상 폼 값
                 for k in ("tags", "mustVisit", "areas"):  # 목록은 둘을 합침
                     raw[k] = list(dict.fromkeys((parsed.get(k) or []) + form[k]))
-                raw["language"] = parsed.get("language") or "en"
+                raw["language"] = parsed.get("language") or DEFAULT_LANG
                 if parsed.get("preferenceText") and form["preferenceText"]:
                     raw["preferenceText"] = f"{form['preferenceText']} {parsed['preferenceText']}"
         except Exception as e:  # LLM이 죽어도 폼 값만으로 추천은 계속
@@ -222,23 +224,26 @@ def _summary(stops, query, total_cost, walk_min, lang):
 # ─────────────────────────────────────────────
 # 4) 입구 함수
 # ─────────────────────────────────────────────
-def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None):
+def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, lang=None):
     """
     req         : POST /api/recommendations 요청 JSON
     place_rows  : DB places 행 리스트
     call_llm    : free_text 해석용 (없으면 폼 값만 사용)
     embed       : 취향 맞춤 점수용 임베딩 (없으면 카테고리 태그 방식)
     travel_date : 여행 날짜 (datetime.date). 없으면 마닐라 기준 오늘 → 그 요일 영업시간 사용
+    lang        : summary·reason·에러 메시지 언어 ("ko" 또는 "en"). 넘기면 free_text 언어보다 우선
+                  없으면 free_text의 언어, 그것도 없으면 DEFAULT_LANG("ko")
     """
     day = travel_date or datetime.now(ZoneInfo("Asia/Manila")).date()
     weekday = DAYS[day.weekday()]
 
     places = [p for p in (to_internal_place(r, weekday) for r in place_rows) if p]
     if not places:
-        raise NoResultsError("No places are open on that day.")
+        raise NoResultsError(_say(lang or DEFAULT_LANG,
+            "그날 문을 연 장소가 없어요.", "No places are open on that day."))
 
     query, notes = build_query(req, places, call_llm)
-    lang = query["language"]
+    lang = (lang or query["language"] or DEFAULT_LANG).lower()
     sl = req["start_location"]
     start_location = [sl["lat"], sl["lng"]]
 

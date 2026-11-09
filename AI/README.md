@@ -41,6 +41,7 @@ def create_recommendation(body: dict, conn=Depends(get_conn)):
 - 응답에 디버깅용 `_debug` 키가 하나 더 있어요. `response_model`을 쓰면 자동으로 빠지고, 안 쓰면 `pop("_debug")` 해주세요.
 - LLM이나 임베딩 호출이 실패해도 예외를 던지지 않고 폼 값만으로 추천해요. 그래서 `AI_TIMEOUT`은 백엔드 쪽 시간 제한에서만 나와요.
 - 키가 없거나 테스트할 땐 `call_llm`, `embed`를 빼도 돼요 (폼 값 + 카테고리 태그로 추천).
+- 설명 문장 언어는 `lang="ko"` 또는 `lang="en"`으로 정할 수 있어요. 안 넘기면 `free_text`의 언어, 그것도 없으면 한국어예요.
 
 ## 명세에 없어서 일단 이렇게 정한 것 (합의 필요)
 
@@ -50,7 +51,7 @@ def create_recommendation(body: dict, conn=Depends(get_conn)):
 | 출발 시각 | 요청에 없어서 `free_text`에 시간이 있으면 사용, 없으면 10:00~16:00 |
 | 이동 수단 | 지금은 전부 도보 (`walk`, 0페소). 첫 장소는 명세대로 `transport: null` |
 | `est_cost` | 식당·시장·가게는 `price_min`~`price_max`의 가운데 값, 관광지는 `entry_fee` |
-| `summary`, `reason` 언어 | `free_text`가 한국어면 한국어, 그 외엔 영어 |
+| `summary`, `reason` 언어 | `recommend(..., lang="ko")`로 넘긴 값이 최우선. 없으면 `free_text`의 언어, 그것도 없으면 한국어. 지금 문장은 한국어·영어만 있음 |
 | 영업시간 | 여행 날짜(기본: 마닐라 기준 오늘)의 요일 값 사용. `closed`면 제외, 비어 있으면 09:00-18:00으로 가정 |
 | 장소 점수 | DB에 `local_score`가 없어서 모두 5점. 컬럼이 생기면 자동으로 사용 |
 | `region` | `district`와 이름이 같으면 그 지역 우선, 아니면 무시 |
