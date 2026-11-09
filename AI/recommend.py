@@ -14,9 +14,12 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
 
 명세에 없어서 여기서 정한 것 (팀 합의 필요, README 참고)
   - 폼 값(budget 등)이 free_text보다 우선, free_text는 빈 곳만 채움
-  - 출발 시각이 요청에 없음 → free_text에 시간이 있으면 쓰고, 없으면 10:00~16:00
+  - 출발·종료 시각: start_time/end_time > free_text의 시간 > 기본 10:00~16:00 (docs/API.md)
+  - 여행 날짜: travel_date 인자 > 요청의 travel_date > 마닐라 기준 오늘 → 그 요일 영업시간 사용
   - 첫 장소의 transport는 명세대로 null, 이동은 지금은 전부 도보(walk, 0페소)
   - summary·reason 언어: recommend(lang=...)로 넘긴 값 > free_text의 언어 > 기본 "ko" (앱 화면이 한국어)
+  - 코스 길이·식사: 6시간 기준 최대 5곳(여유 4, 알차게 6), 시간이 길거나 짧으면 비례해서 조정
+    먹는 곳 최대 2곳(음식 선택 시 3곳, 8시간 이상이면 +1), 먹는 곳 3연속 금지
 """
 import uuid
 from datetime import date, datetime
@@ -49,6 +52,17 @@ DEFAULT_STAY = {"restaurant": 45, "market": 40, "shop": 30, "attraction": 45}
 DEFAULT_HOURS = ("09:00", "18:00")  # 영업시간이 비어 있는 장소에 쓰는 임시 값
 DEFAULT_SCORE = 5                   # DB에 local_score가 없으면 모두 같은 기본 점수
 DEFAULT_LANG = "ko"                 # 설명 문장 기본 언어 (앱 화면이 한국어). 지금 문장은 "ko"와 "en"만 있음
+
+# 코스 길이·식사 제한 (UST 피드백 보고 조정)
+DEFAULT_START, DEFAULT_END = "10:00", "16:00"        # 시간 입력이 없을 때 (docs/API.md 기본값)
+MAX_STOPS = {"relaxed": 4, "normal": 5, "packed": 6}  # 페이스별 최대 장소 수 (BASE_HOURS 기준)
+BASE_HOURS = 6                                        # MAX_STOPS가 기준으로 삼는 여행 시간
+MAX_STOPS_EXTRA = 2                                   # 시간이 아무리 길어도 MAX_STOPS보다 이만큼까지만 더
+LONG_DAY_HOURS = 8                                    # 이 시간 이상이면 먹는 곳 1곳 더 (점심 + 저녁)
+MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"으로 세는 DB 카테고리 (카페·빵집도 restaurant)
+MAX_MEALS = 2                                         # 먹는 곳 최대 개수
+MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 먹거리 위주로 요청했을 때
+MAX_MEALS_IN_ROW = 2                                  # 먹는 곳 최대 연속 (밥 → 카페까지 OK)
 
 
 # ─────────────────────────────────────────────
@@ -109,6 +123,7 @@ def to_internal_place(row, weekday):
         "stayMin": row.get("avg_stay_minutes") or DEFAULT_STAY.get(row.get("category"), 40),
         "costPhp": food + entry,
         "smallBiz": bool(row.get("is_small_business")),
+        "isMeal": row.get("category") in MEAL_CATEGORIES,
         "score": row.get("local_score") or DEFAULT_SCORE,
         "description": desc,
         # 응답 만들 때 다시 쓰는 원본 값
@@ -141,7 +156,7 @@ def _form_raw(req, places):
     budget = req.get("budget") or {}
     return {
         "budget": {"amount": budget.get("amount"), "currency": budget.get("currency") or "PHP"},
-        "start": None, "end": None,
+        "start": req.get("start_time"), "end": req.get("end_time"),
         "tags": tags, "areas": areas, "mustVisit": must, "avoid": [],
         "preferenceText": " ".join(pref),
         "language": DEFAULT_LANG, "isTripRequest": True,
@@ -170,8 +185,25 @@ def build_query(req, places, call_llm):
                     raw["preferenceText"] = f"{form['preferenceText']} {parsed['preferenceText']}"
         except Exception as e:  # LLM이 죽어도 폼 값만으로 추천은 계속
             notes.append(f"free_text 해석 실패, 폼 값만 사용: {e}")
+    if not raw.get("start"):
+        raw["start"] = DEFAULT_START
+    if not raw.get("end"):
+        raw["end"] = DEFAULT_END  # 시작이 16:00 이후면 validate_query가 시작 + 4시간으로 고쳐줌
     v = validate_query(raw)
-    return v["query"], v["assumptions"] + notes
+    query = v["query"]
+    # region은 DB의 district 이름 그대로 비교 (parse_query의 지역 목록에 없는 동네도 OK)
+    query["areas"] = list(dict.fromkeys(query["areas"] + form["areas"]))
+    return query, v["assumptions"] + notes
+
+
+def _limits(query, req):
+    """여행 시간에 맞춘 장소 수·식사 제한"""
+    hours = (to_min(query["end"]) - to_min(query["start"])) / 60
+    base = MAX_STOPS.get(query["pace"], MAX_STOPS["normal"])
+    max_stops = min(base + MAX_STOPS_EXTRA, max(1, js_round(base * hours / BASE_HOURS)))
+    food_lover = bool(req.get("foods")) or any(t in ("food", "cafe") for t in query["tags"])
+    max_meals = (MAX_MEALS_FOOD_LOVER if food_lover else MAX_MEALS) + (1 if hours >= LONG_DAY_HOURS else 0)
+    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW}
 
 
 # ─────────────────────────────────────────────
@@ -230,10 +262,12 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     place_rows  : DB places 행 리스트
     call_llm    : free_text 해석용 (없으면 폼 값만 사용)
     embed       : 취향 맞춤 점수용 임베딩 (없으면 카테고리 태그 방식)
-    travel_date : 여행 날짜 (datetime.date). 없으면 마닐라 기준 오늘 → 그 요일 영업시간 사용
+    travel_date : 여행 날짜 (datetime.date). 없으면 요청의 travel_date("YYYY-MM-DD"), 그것도 없으면 마닐라 기준 오늘
     lang        : summary·reason·에러 메시지 언어 ("ko" 또는 "en"). 넘기면 free_text 언어보다 우선
                   없으면 free_text의 언어, 그것도 없으면 DEFAULT_LANG("ko")
     """
+    if travel_date is None and req.get("travel_date"):
+        travel_date = date.fromisoformat(str(req["travel_date"]))
     day = travel_date or datetime.now(ZoneInfo("Asia/Manila")).date()
     weekday = DAYS[day.weekday()]
 
@@ -256,6 +290,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
 
     b = build_plan_input(query, places, start_location, personal)
     plan_input = b["planInput"]
+    plan_input["options"].update(_limits(query, req))
     route = plan_route(plan_input)
 
     if not route["stops"]:
