@@ -9,6 +9,12 @@ export function won(php: number, rate: number): string {
   return `${(Math.round((php * rate) / 100) * 100).toLocaleString('ko-KR')}원`
 }
 
+/** "₱100 – ₱300", or one value when both ends match ("₱75"); "무료" when it costs nothing. */
+export function pesoRange(min: number, max: number): string {
+  if (max <= 0) return '무료'
+  return min === max ? peso(min) : `${peso(min)} – ${peso(max)}`
+}
+
 export function duration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60

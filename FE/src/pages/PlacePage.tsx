@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getPlace } from '../api/client.ts'
 import type { PlaceDetail } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
-import { CATEGORY_KO, duration, peso, won } from '../lib/format.ts'
+import { CATEGORY_KO, duration, peso, pesoRange, won } from '../lib/format.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
 import type { PlaceState } from './ResultPage.tsx'
 import './PlacePage.css'
@@ -93,9 +93,7 @@ export default function PlacePage() {
               <Icon name="wallet" size={18} stroke={2} />
               가격대
             </dt>
-            <dd>
-              {peso(place.price_range.min)} – {peso(place.price_range.max)}
-            </dd>
+            <dd>{pesoRange(place.price_range.min, place.price_range.max)}</dd>
           </div>
           <div>
             <dt>
