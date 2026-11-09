@@ -25,5 +25,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         first = exc.errors()[0] if exc.errors() else {}
         where = ".".join(str(p) for p in first.get("loc", ()) if p != "body")
-        message = f"{where}: {first.get('msg', 'invalid value')}" if where else "Invalid request"
+        # Whole-body checks (model validators) have no field location; their msg says what's wrong.
+        msg = str(first.get("msg", "invalid value")).removeprefix("Value error, ")
+        message = f"{where}: {msg}" if where else msg
         return JSONResponse(status_code=400, content=_body("INVALID_REQUEST", message))

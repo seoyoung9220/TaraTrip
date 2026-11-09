@@ -120,6 +120,48 @@ def test_missing_start_location(client_with):
     assert res.status_code == 400
 
 
+MONDAY, TUESDAY = "2026-11-16", "2026-11-17"
+
+
+@pytest.mark.parametrize("day, expected", [(MONDAY, False), (TUESDAY, True)])
+def test_travel_date_uses_that_weekdays_hours(client_with, day, expected):
+    rows = [{**ROWS[0], "opening_hours": {**ALL_DAY, "mon": "closed"}}, *ROWS[1:]]
+    res = client_with(rows).post("/api/recommendations", json={**REQ, "travel_date": day})
+    assert res.status_code == 200, res.text
+    names = [s["name"] for s in res.json()["stops"]]
+    assert ("Fort Santiago" in names) is expected
+
+
+def test_reasons_are_korean_even_for_english_free_text(client_with):
+    res = client_with().post("/api/recommendations", json={**REQ, "free_text": "I want street food"})
+    assert res.status_code == 200, res.text
+    assert "코스" in res.json()["summary"]
+
+
+def test_times_are_accepted(client_with):
+    res = client_with().post("/api/recommendations", json={**REQ, "start_time": "09:00", "end_time": "18:30"})
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.parametrize(
+    "patch, message",
+    [
+        ({"start_time": "14:00", "end_time": "13:00"}, "end_time must be later than start_time"),
+        ({"start_time": "10:00", "end_time": "10:00"}, "end_time must be later than start_time"),
+        ({"start_time": "9:00"}, "start_time"),
+        ({"end_time": "24:00"}, "end_time"),
+        ({"travel_date": "2026-13-01"}, "travel_date"),
+        ({"travel_date": "11/20/2026"}, "travel_date"),
+    ],
+)
+def test_invalid_date_or_time(client_with, patch, message):
+    res = client_with().post("/api/recommendations", json={**REQ, **patch})
+    assert res.status_code == 400
+    error = res.json()["error"]
+    assert error["code"] == "INVALID_REQUEST"
+    assert message in error["message"]
+
+
 def test_ai_timeout(client_with, monkeypatch):
     def slow(*_args, **_kwargs):
         time.sleep(0.5)
