@@ -34,6 +34,12 @@ const PATHS = {
       <circle cx="12" cy="12.5" r="2.5" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </>
+  ),
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />
