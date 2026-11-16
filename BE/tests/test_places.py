@@ -60,10 +60,19 @@ def test_place_found(client_with):
         "lng": 120.9747,
         "address": "Ongpin St, Binondo, Manila",
         "price_range": {"min": 80, "max": 200, "currency": "PHP"},
+        "signature_menu": None,
+        "signature_price": None,
+        "cash_only": False,
         "opening_hours": "08:00-20:00",
         "description": "",
         "photos": [],
     }
+
+
+def test_signature_fields(client_with):
+    row = {**ROW, "signature_menu": "Fresh lumpia", "signature_price": 60, "cash_only": True}
+    body = client_with(row).get("/api/places/MNL-0001").json()
+    assert (body["signature_menu"], body["signature_price"], body["cash_only"]) == ("Fresh lumpia", 60, True)
 
 
 def test_place_not_found(client_with):

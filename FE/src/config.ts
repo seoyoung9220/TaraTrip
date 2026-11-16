@@ -1,6 +1,7 @@
 // Placeholders until the UST team settles the first region and the food list (same as the wireframes).
 // Replace these with real values, or load them from the backend once an endpoint exists.
 
+/** Shown when GET /api/regions fails or returns nothing. */
 export const REGION = '[지역]'
 
 export const FOODS = ['[음식 1]', '[음식 2]', '[음식 3]', '[음식 4]', '[음식 5]']

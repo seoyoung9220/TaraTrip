@@ -79,15 +79,35 @@ export default function PlacePage() {
 
       <div className="place-main">
         <div className="place-head">
-          <span className="place-tag">
-            {stop ? `코스 ${stop.order}번째 · ` : ''}
-            {CATEGORY_KO[place.category]}
-          </span>
+          <div className="place-tags">
+            <span className="place-tag">
+              {stop ? `코스 ${stop.order}번째 · ` : ''}
+              {CATEGORY_KO[place.category]}
+            </span>
+            {place.cash_only && <span className="place-tag cash">현금만 가능</span>}
+          </div>
           <h1 className="place-name">{place.name}</h1>
           <p className="place-desc">{place.description}</p>
         </div>
 
         <dl className="facts">
+          {place.signature_menu && (
+            <div>
+              <dt>
+                <Icon name="dish" size={18} stroke={2} />
+                대표 메뉴
+              </dt>
+              <dd>
+                {place.signature_menu}
+                {place.signature_price !== null && (
+                  <span className="fact-sub">
+                    {peso(place.signature_price)}
+                    {rate !== null && ` ≈ ${won(place.signature_price, rate)}`}
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>
               <Icon name="wallet" size={18} stroke={2} />

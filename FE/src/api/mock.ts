@@ -1,5 +1,5 @@
 // Sample responses shaped like docs/API.md. Names and amounts are placeholders, not real data.
-import type { ExchangeRate, PlaceDetail, Recommendation, RecommendationRequest, Stop } from './types.ts'
+import type { ExchangeRate, PlaceDetail, Recommendation, RecommendationRequest, Regions, Stop } from './types.ts'
 
 export const mockRecommendation: Recommendation = {
   route_id: 'mock-route-1',
@@ -172,6 +172,9 @@ export function mockPlace(placeId: string): PlaceDetail | undefined {
     lng: stop.lng,
     address: '[주소]',
     price_range: { min: 100, max: 300, currency: 'PHP' },
+    signature_menu: stop.category === 'restaurant' ? '[대표 메뉴]' : null,
+    signature_price: stop.category === 'restaurant' ? 150 : null,
+    cash_only: stop.category === 'restaurant',
     opening_hours: '08:00-20:00',
     description: '[가게 소개 문구]',
     photos: [],
@@ -184,3 +187,6 @@ export const mockExchangeRate: ExchangeRate = {
   rate: 24,
   updated_at: '2026-11-04T00:00:00Z',
 }
+
+// Same districts as BE/dev/sample_places.py.
+export const mockRegions: Regions = { regions: ['Binondo', 'Intramuros'] }

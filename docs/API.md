@@ -12,6 +12,7 @@ All parts are developed against this spec. Any change to it needs agreement from
 | `POST /api/recommendations` | Seoyoung (API), Junwon (AI module behind it) |
 | `GET /api/places/{place_id}` | Seoyoung (API), Hyungeun (DB) |
 | `GET /api/exchange-rate` | Hyungeun |
+| `GET /api/regions` | Seoyoung (API), Hyungeun (DB) |
 
 ---
 
@@ -127,11 +128,20 @@ Returns details for one place.
   "lng": 120.98,
   "address": "string",
   "price_range": { "min": 100, "max": 300, "currency": "PHP" },
+  "signature_menu": "string",
+  "signature_price": 150,
+  "cash_only": false,
   "opening_hours": "08:00-20:00",
   "description": "string",
   "photos": ["https://..."]
 }
 ```
+
+| Field | Type | Notes |
+|---|---|---|
+| `signature_menu` | string \| null | Dish or product the place is known for. `null` if not collected |
+| `signature_price` | integer \| null | PHP price of one `signature_menu` item. `null` if unknown |
+| `cash_only` | boolean | `true` if the place takes cash only (no card / GCash / Maya) |
 
 ---
 
@@ -156,6 +166,20 @@ PHP → KRW rate for showing the KRW equivalent next to peso amounts. The server
 | `updated_at` | string | When the rate was fetched (ISO 8601) |
 
 If the server has never managed to fetch a rate, it answers `503 RATE_UNAVAILABLE`. If a later refresh fails, it keeps serving the last good rate (`updated_at` shows its age). On any error the frontend hides the KRW line instead of failing.
+
+---
+
+## GET /api/regions
+
+Lists the regions the input screen offers: the distinct `places.district` values, sorted, case-insensitive duplicates removed. Until the UST team fixes the region list, this follows the data. Send one of them as `region` in `POST /api/recommendations`.
+
+### Response `200 OK`
+
+```json
+{ "regions": ["Binondo", "Intramuros"] }
+```
+
+An empty database gives `{ "regions": [] }`. The FE then shows its built-in default region.
 
 ---
 
