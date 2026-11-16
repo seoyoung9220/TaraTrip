@@ -127,11 +127,20 @@ Returns details for one place.
   "lng": 120.98,
   "address": "string",
   "price_range": { "min": 100, "max": 300, "currency": "PHP" },
+  "signature_menu": "string",
+  "signature_price": 150,
+  "cash_only": false,
   "opening_hours": "08:00-20:00",
   "description": "string",
   "photos": ["https://..."]
 }
 ```
+
+| Field | Type | Notes |
+|---|---|---|
+| `signature_menu` | string \| null | Dish or product the place is known for. `null` if not collected |
+| `signature_price` | integer \| null | PHP price of one `signature_menu` item. `null` if unknown |
+| `cash_only` | boolean | `true` if the place takes cash only (no card / GCash / Maya) |
 
 ---
 

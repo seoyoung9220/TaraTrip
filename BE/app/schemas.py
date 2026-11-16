@@ -95,6 +95,9 @@ class PlaceDetail(BaseModel):
     lng: float
     address: str
     price_range: PriceRange
+    signature_menu: str | None
+    signature_price: int | None
+    cash_only: bool
     opening_hours: str
     description: str
     photos: list[str]

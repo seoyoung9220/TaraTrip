@@ -16,7 +16,8 @@ def hours(value: str, **overrides: str) -> dict:
 
 
 def place(place_id, name, category, lat, lng, district, *, price=None, entry=0,
-          small=False, stay=40, opening=None, tags=(), description=None):
+          small=False, stay=40, opening=None, tags=(), description=None,
+          menu=None, cash_only=False):
     lo, hi = price if price else (None, None)
     return {
         "place_id": place_id,
@@ -30,6 +31,9 @@ def place(place_id, name, category, lat, lng, district, *, price=None, entry=0,
         "price_min": lo,
         "price_max": hi,
         "entry_fee": entry,
+        "signature_menu": menu[0] if menu else None,
+        "signature_price": menu[1] if menu else None,
+        "cash_only": cash_only,
         "avg_stay_minutes": stay,
         "opening_hours": opening if opening is not None else hours("08:00-20:00"),
         "tags": list(tags),
@@ -54,9 +58,11 @@ SAMPLE_PLACES = [
           description="Oldest stone church in the country, with a museum. Closed on Mondays (sample)."),
     place("DEV-0004", "Kalye Lumpia Stall", "restaurant", 14.5905, 120.9750, "Intramuros",
           price=(80, 150), small=True, stay=30, tags=["street food", "lumpia"],
+          menu=("Fresh lumpia", 60), cash_only=True,
           description="Family-run stall selling fresh lumpia (made-up sample)."),
     place("DEV-0005", "Plaza Kapihan", "restaurant", 14.5912, 120.9741, "Intramuros",
           price=(120, 220), small=True, stay=40, opening=hours("07:00-19:00"), tags=["cafe", "coffee"],
+          menu=("Kapeng barako", 90),
           description="Small café serving barako coffee and kakanin (made-up sample)."),
     place("DEV-0006", "Intramuros Weavers Shop", "shop", 14.5897, 120.9758, "Intramuros",
           price=(150, 600), small=True, stay=25, opening=hours("09:00-18:00", sun="closed"),

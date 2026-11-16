@@ -13,7 +13,8 @@ DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 PLACE_COLUMNS = """
     place_id, name, category, lat, lng, address,
-    price_min, price_max, entry_fee, opening_hours, description, photos
+    price_min, price_max, entry_fee, signature_menu, signature_price, cash_only,
+    opening_hours, description, photos
 """
 
 
@@ -68,6 +69,10 @@ def to_place_detail(row: dict) -> PlaceDetail:
         lng=row["lng"],
         address=row["address"],
         price_range=price_range(row),
+        # .get(): rows from before PR #13's columns (and dev samples) may lack them
+        signature_menu=row.get("signature_menu") or None,
+        signature_price=row.get("signature_price"),
+        cash_only=bool(row.get("cash_only")),
         opening_hours=format_opening_hours(row["opening_hours"]),
         description=row["description"] or "",
         photos=row["photos"] or [],
