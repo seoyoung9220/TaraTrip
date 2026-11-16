@@ -10,3 +10,10 @@ export const FOODS = ['[음식 1]', '[음식 2]', '[음식 3]', '[음식 4]', '[
 export const FALLBACK_START = { lat: 14.5995, lng: 120.9842 }
 
 export const BUDGET_STEPS = [500, 1000, 3000]
+
+/**
+ * OSRM server for road routes on the result map. The public demo server is for demos only
+ * (car routing, no SLA). Set VITE_ROUTING_URL to '' to draw straight lines instead.
+ * Only the stop coordinates are sent; the first stop can be near the traveler's location.
+ */
+export const ROUTING_URL: string = import.meta.env.VITE_ROUTING_URL ?? 'https://router.project-osrm.org'

@@ -24,6 +24,18 @@
   z-index: 1000;
 }
 
+.map-leg span {
+  display: block;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--forest);
+  font: 700 11px var(--font);
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(25, 27, 31, 0.2);
+}
+
 .map-pin {
   display: grid;
   place-items: center;
