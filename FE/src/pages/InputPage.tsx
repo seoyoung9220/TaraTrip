@@ -6,6 +6,7 @@ import { BUDGET_STEPS, FALLBACK_START, FOODS, REGION } from '../config.ts'
 import { dayLabel, today, tomorrow } from '../lib/date.ts'
 import { peso, won } from '../lib/format.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
+import { useRegions } from '../lib/useRegions.ts'
 import './InputPage.css'
 
 type StartState = 'idle' | 'locating' | 'here' | 'denied'
@@ -20,6 +21,11 @@ export default function InputPage() {
   const location = useLocation()
   const prev = location.state as RecommendationRequest | null
   const rate = useExchangeRate()
+  const regions = useRegions()
+
+  const [pickedRegion, setPickedRegion] = useState(prev?.region ?? '')
+  // A region from an earlier visit may be gone from the data; then take the first one.
+  const region = regions.includes(pickedRegion) ? pickedRegion : (regions[0] ?? REGION)
 
   const [freeText, setFreeText] = useState(prev?.free_text ?? '')
   const [budget, setBudget] = useState(prev?.budget.amount ?? 1000)
@@ -65,7 +71,7 @@ export default function InputPage() {
     e.preventDefault()
     if (!canSubmit) return
     const req: RecommendationRequest = {
-      region: REGION,
+      region,
       budget: { amount: budget, currency: 'PHP' },
       foods,
       attractions: prev?.attractions ?? [],
@@ -91,10 +97,24 @@ export default function InputPage() {
         <span className="logo">
           Tara<b>Trip</b>
         </span>
-        <span className="region-pill" title="지역은 곧 고를 수 있어요">
-          <Icon name="pin" size={15} />
-          {REGION}
-        </span>
+        {regions.length > 1 ? (
+          <label className="region-pill region-select">
+            <Icon name="pin" size={15} />
+            <select value={region} onChange={(e) => setPickedRegion(e.target.value)} aria-label="지역">
+              {regions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <Icon name="chevronDown" size={14} />
+          </label>
+        ) : (
+          <span className="region-pill">
+            <Icon name="pin" size={15} />
+            {region}
+          </span>
+        )}
       </header>
 
       <main className="input-main">

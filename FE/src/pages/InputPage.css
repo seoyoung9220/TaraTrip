@@ -22,6 +22,27 @@
   font-weight: 600;
 }
 
+.region-select {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Native select (good on phones), drawn as plain text inside the pill. */
+.region-select select {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.region-select:focus-within {
+  outline: 2px solid var(--mango);
+  outline-offset: 2px;
+}
+
 .input-main {
   flex: 1;
   display: flex;

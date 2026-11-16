@@ -1,5 +1,5 @@
 // Sample responses shaped like docs/API.md. Names and amounts are placeholders, not real data.
-import type { ExchangeRate, PlaceDetail, Recommendation } from './types.ts'
+import type { ExchangeRate, PlaceDetail, Recommendation, Regions } from './types.ts'
 
 export const mockRecommendation: Recommendation = {
   route_id: 'mock-route-1',
@@ -93,3 +93,6 @@ export const mockExchangeRate: ExchangeRate = {
   rate: 24,
   updated_at: '2026-11-04T00:00:00Z',
 }
+
+// Same districts as BE/dev/sample_places.py.
+export const mockRegions: Regions = { regions: ['Binondo', 'Intramuros'] }

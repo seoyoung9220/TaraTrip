@@ -68,6 +68,10 @@ export interface PlaceDetail extends LatLng {
   photos: string[]
 }
 
+export interface Regions {
+  regions: string[]
+}
+
 export interface ExchangeRate {
   base: 'PHP'
   quote: 'KRW'

@@ -1,4 +1,4 @@
-import { mockExchangeRate, mockPlace, mockRecommendation } from './mock.ts'
+import { mockExchangeRate, mockPlace, mockRecommendation, mockRegions } from './mock.ts'
 import {
   ApiError,
   type ApiErrorCode,
@@ -6,6 +6,7 @@ import {
   type PlaceDetail,
   type Recommendation,
   type RecommendationRequest,
+  type Regions,
 } from './types.ts'
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
@@ -68,4 +69,9 @@ export async function getPlace(placeId: string): Promise<PlaceDetail> {
 export function getExchangeRate(): Promise<ExchangeRate> {
   if (USE_MOCK) return delay(mockExchangeRate)
   return request('/exchange-rate')
+}
+
+export function getRegions(): Promise<Regions> {
+  if (USE_MOCK) return delay(mockRegions)
+  return request('/regions')
 }
