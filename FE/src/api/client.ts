@@ -1,4 +1,4 @@
-import { mockExchangeRate, mockPlace, mockRecommendation } from './mock.ts'
+import { mockExchangeRate, mockPlace, mockRouteFor } from './mock.ts'
 import {
   ApiError,
   type ApiErrorCode,
@@ -35,7 +35,7 @@ function mockRecommend(req: RecommendationRequest): Promise<Recommendation> {
   const forced = MOCK_ERRORS[new URLSearchParams(window.location.search).get('mockError') ?? '']
   if (forced) return fail(forced[0], forced[1], 1800)
   if (req.budget.amount < MOCK_MIN_BUDGET) return fail('BUDGET_TOO_LOW', 422, 1800)
-  return delay(mockRecommendation, MOCK_RECOMMEND_MS)
+  return delay(mockRouteFor(req), MOCK_RECOMMEND_MS)
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
