@@ -112,6 +112,69 @@ def test_language():
         assert "장소" in str(e), str(e)
 
 
+def test_course_length_and_meals():
+    """코스가 너무 길거나 먹는 곳만 연달아 나오지 않는지 (서영 님 피드백)"""
+    from recommend import MAX_STOPS, MAX_MEALS, MAX_MEALS_FOOD_LOVER, MAX_MEALS_IN_ROW
+    cat = {r["place_id"]: r["category"] for r in ROWS}
+    for req, max_meals in [
+        ({**REQ, "foods": [], "attractions": []}, MAX_MEALS),
+        (REQ, MAX_MEALS_FOOD_LOVER),  # foods가 있으면 먹거리 위주
+        ({**REQ, "budget": {"amount": 5000, "currency": "PHP"}}, MAX_MEALS_FOOD_LOVER),
+    ]:
+        res = recommend(req, ROWS, travel_date=TUE)
+        check_shape(res, req["budget"]["amount"])
+        meals = [cat[s["place_id"]] in ("restaurant", "market") for s in res["stops"]]
+        assert len(res["stops"]) <= MAX_STOPS["normal"], len(res["stops"])
+        assert sum(meals) <= max_meals, meals
+        row = best = 0
+        for m in meals:
+            row = row + 1 if m else 0
+            best = max(best, row)
+        assert best <= MAX_MEALS_IN_ROW, meals
+
+
+def _ends(s):
+    h, m = map(int, s["arrival_time"].split(":"))
+    return h * 60 + m + s["stay_minutes"]
+
+
+def test_trip_times():
+    """start_time / end_time / travel_date (docs/API.md)"""
+    # 1) 폼 시간 안에서만 동선
+    res = recommend({**REQ, "start_time": "13:00", "end_time": "17:00"}, ROWS, travel_date=TUE)
+    check_shape(res, 1000)
+    assert res["stops"][0]["arrival_time"] >= "13:00"
+    assert max(_ends(s) for s in res["stops"]) <= 17 * 60
+    # 2) 폼 시간이 free_text 시간보다 우선
+    llm = lambda m: '{"budget":null,"start":"09:00","end":"12:00","tags":[],"areas":[],"mustVisit":[],"avoid":[],"preferenceText":"","language":"ko","isTripRequest":true}'
+    res = recommend({**REQ, "start_time": "14:00", "end_time": "18:00", "free_text": "아침 9시부터 12시까지"},
+                    ROWS, call_llm=llm, travel_date=TUE)
+    assert res["stops"][0]["arrival_time"] >= "14:00"
+    # 3) 폼에 시간이 없으면 free_text 시간 사용
+    res = recommend({**REQ, "free_text": "아침 9시부터 12시까지"}, ROWS, call_llm=llm, travel_date=TUE)
+    assert max(_ends(s) for s in res["stops"]) <= 12 * 60
+    # 4) 시작만 있으면 종료는 16:00
+    res = recommend({**REQ, "start_time": "12:00"}, ROWS, travel_date=TUE)
+    assert res["stops"][0]["arrival_time"] >= "12:00" and max(_ends(s) for s in res["stops"]) <= 16 * 60
+    # 5) 아무 시간도 없으면 10:00~16:00
+    res = recommend(REQ, ROWS, travel_date=TUE)
+    assert res["stops"][0]["arrival_time"] >= "10:00" and max(_ends(s) for s in res["stops"]) <= 16 * 60
+    # 6) 요청 안의 travel_date 문자열도 사용 (월요일 휴무인 곳 제외)
+    res = recommend({**REQ, "travel_date": "2026-11-09"}, ROWS)
+    assert ROWS[1]["name"] not in [s["name"] for s in res["stops"]]
+
+
+def test_course_length_follows_time():
+    """짧은 일정은 적게, 긴 일정은 조금 더 (하지만 MAX_STOPS + 2까지만)"""
+    from recommend import MAX_STOPS, MAX_STOPS_EXTRA
+    short = recommend({**REQ, "start_time": "13:00", "end_time": "16:00"}, ROWS, travel_date=TUE)
+    long = recommend({**REQ, "budget": {"amount": 5000, "currency": "PHP"},
+                      "start_time": "08:00", "end_time": "21:00"}, ROWS, travel_date=TUE)
+    assert len(short["stops"]) <= 3, len(short["stops"])
+    assert len(long["stops"]) <= MAX_STOPS["normal"] + MAX_STOPS_EXTRA, len(long["stops"])
+    assert len(long["stops"]) > len(short["stops"])
+
+
 def test_budget_too_low():
     rows = [{**r, "entry_fee": 500, "price_min": 500, "price_max": 500} for r in ROWS]
     try:

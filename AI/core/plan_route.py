@@ -29,6 +29,10 @@ DEFAULTS = {
     "stayFactor": 1,         # 체류시간 배율 (여유롭게 1.5, 빡빡하게 0.8)
     "maxLegMin": INF,        # 한 번에 걸을 수 있는 최대 시간(분). 걷기 싫은 사람은 12분 정도
     "iterations": 200,       # 흔들기 반복 횟수
+    # 코스 길이·식사 제한 (기본은 제한 없음 = JS 버전과 같은 동작)
+    "maxStops": INF,         # 하루 최대 장소 수
+    "maxMeals": INF,         # 먹는 곳(장소의 isMeal=True) 최대 개수
+    "maxMealsInRow": INF,    # 먹는 곳 최대 연속 개수 (2면 밥→카페까지 OK, 3연속 금지)
 }
 
 
@@ -48,7 +52,7 @@ def plan_route(input):
       start, end: "HH:MM"
       startLocation: [lat, lng]
       places: [{ name, lat, lng, opens:"HH:MM", closes:"HH:MM",
-                 stayMin, costPhp, smallBiz:bool, score:1~10 }]
+                 stayMin, costPhp, smallBiz:bool, score:1~10, isMeal:bool(선택) }]
       options: DEFAULTS 덮어쓰기 (선택)
     반환: { stops, totalCost, totalWalkMin, returnTime, returnWalkMin, skipped }
     """
@@ -72,9 +76,19 @@ def plan_route(input):
     def evaluate(route):
         """경로를 시간순으로 따라가며 가능한지 확인
         → 가능하면 (이동시간 + 기다린 시간 × 가중치), 불가능하면 None"""
+        if len(route) > opt["maxStops"]:          # 코스가 너무 김
+            return None
         t, prev, travel, cost = START, DEPOT, 0, 0
+        meals = meals_in_row = 0
         for i in route:
             p = P[i]
+            if p.get("isMeal"):                   # 먹는 곳 개수·연속 제한
+                meals += 1
+                meals_in_row += 1
+                if meals > opt["maxMeals"] or meals_in_row > opt["maxMealsInRow"]:
+                    return None
+            else:
+                meals_in_row = 0
             if T[prev][i] > opt["maxLegMin"]:   # 한 번에 너무 멀리 걷는 구간 금지
                 return None
             t += T[prev][i]
