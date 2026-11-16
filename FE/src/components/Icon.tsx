@@ -34,6 +34,14 @@ const PATHS = {
       <circle cx="12" cy="12.5" r="2.5" />
     </>
   ),
+  // Not in the wireframe set: added for the signature-menu row on the place screen.
+  dish: (
+    <>
+      <path d="M4 15h16" />
+      <path d="M5 15a7 7 0 0 1 14 0" />
+      <path d="M12 6v2M3 19h18" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="2" />

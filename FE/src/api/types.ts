@@ -57,6 +57,12 @@ export interface PlaceDetail extends LatLng {
   category: PlaceCategory
   address: string
   price_range: { min: number; max: number; currency: 'PHP' }
+  /** Dish or product the place is known for; null if not collected. */
+  signature_menu: string | null
+  /** PHP, one signature_menu item; null if unknown. */
+  signature_price: number | null
+  /** No card / GCash / Maya. */
+  cash_only: boolean
   opening_hours: string
   description: string
   photos: string[]
