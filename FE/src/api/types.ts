@@ -79,12 +79,48 @@ export interface ExchangeRate {
   updated_at: string
 }
 
+// ── /api/merchant/places: owners register and edit their own place ──
+
+export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
+
+/** Each day "HH:MM-HH:MM" or "closed". */
+export type OpeningHours = Record<DayKey, string>
+
+export interface MerchantPlaceInput extends LatLng {
+  name: string
+  category: PlaceCategory
+  address: string
+  district: string | null
+  price_min: number | null
+  price_max: number | null
+  entry_fee: number
+  signature_menu: string | null
+  signature_price: number | null
+  cash_only: boolean
+  avg_stay_minutes: number | null
+  opening_hours: OpeningHours
+  tags: string[]
+  description: string | null
+  photos: string[]
+  contact: string | null
+}
+
+export interface MerchantPlace extends MerchantPlaceInput {
+  place_id: string
+}
+
+export interface MerchantPlaceCreated extends MerchantPlace {
+  /** Shown once. Send it as the X-Edit-Key header to read or edit the place. */
+  edit_key: string
+}
+
 export type ApiErrorCode =
   | 'INVALID_REQUEST'
   | 'PLACE_NOT_FOUND'
   | 'BUDGET_TOO_LOW'
   | 'NO_RESULTS'
   | 'AI_TIMEOUT'
+  | 'INVALID_EDIT_KEY'
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode

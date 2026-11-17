@@ -1,0 +1,228 @@
+/* Merchant screens (MerchantPage, MerchantFormPage). Same tokens as the traveler screens. */
+.merchant-logo {
+  padding: 0 12px;
+  font-size: 18px;
+}
+
+.m-header-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.merchant-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 12px 20px 24px;
+}
+
+.m-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.m-card-title,
+.m-section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.m-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 8px solid var(--divider);
+  margin: 0 -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.m-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.m-input {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 16px;
+}
+
+.m-input:focus {
+  border-color: var(--forest);
+  outline: none;
+}
+
+.m-textarea {
+  height: auto;
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.m-hint {
+  font-size: 13px;
+  color: var(--hint);
+}
+
+.m-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.m-row-fill > * {
+  flex: 1;
+}
+
+.m-peso {
+  position: relative;
+  display: block;
+}
+
+.m-peso > span {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sub);
+}
+
+.m-peso .m-input {
+  padding-left: 30px;
+}
+
+.m-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+
+.m-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--forest);
+}
+
+.m-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.m-hours li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+}
+
+.m-hours .m-check {
+  width: 72px;
+  flex: none;
+}
+
+.m-times {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sub);
+}
+
+.m-times .m-input {
+  width: 112px;
+  height: 40px;
+  padding: 0 8px;
+}
+
+.m-closed {
+  color: var(--hint);
+}
+
+.pick-map {
+  height: 220px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  z-index: 0;
+}
+
+.pick-pin span {
+  background: var(--mango);
+}
+
+.m-error,
+.m-ok {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.m-error {
+  color: #b42318;
+}
+
+.m-ok {
+  color: var(--forest-mid);
+}
+
+.m-done-badge {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-top: 32px;
+  border-radius: 999px;
+  background: var(--mango-soft);
+  color: var(--mango-deep);
+}
+
+.m-keys {
+  background: var(--soft);
+  border: 0;
+}
+
+.m-keys dl {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.m-keys dd {
+  margin: 4px 0 0;
+}
+
+.m-warn {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--mango-ink);
+}
+
+.m-code {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  word-break: break-all;
+  user-select: all;
+}

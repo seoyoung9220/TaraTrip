@@ -101,3 +101,79 @@ class PlaceDetail(BaseModel):
     opening_hours: str
     description: str
     photos: list[str]
+
+
+# ── /api/merchant/places ────────────────────────────────────
+
+# "08:00-20:00" or "closed". Same rule as scripts/import_places.py (closing may be 24:00;
+# a closing time before opening means the place closes after midnight).
+DayHours = Annotated[
+    str, Field(pattern=r"^(closed|([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-4]):[0-5]\d)$")
+]
+Peso = Annotated[int, Field(ge=0, le=100_000)]
+
+
+def _short(n: int):
+    return Annotated[str, Field(min_length=1, max_length=n)]
+
+
+class OpeningHours(BaseModel):
+    mon: DayHours
+    tue: DayHours
+    wed: DayHours
+    thu: DayHours
+    fri: DayHours
+    sat: DayHours
+    sun: DayHours
+
+
+class MerchantPlaceInput(BaseModel):
+    """What an owner sends to register or edit a place. Field names are the DB columns."""
+    name: _short(120)
+    category: PlaceCategory
+    lat: float = Field(ge=4, le=22)      # roughly the Philippines; catches swapped lat/lng
+    lng: float = Field(ge=116, le=127)
+    address: _short(300)
+    district: _short(80) | None = None   # shows up in GET /api/regions
+    price_min: Peso | None = None
+    price_max: Peso | None = None
+    entry_fee: Peso = 0
+    signature_menu: _short(120) | None = None
+    signature_price: Peso | None = None
+    cash_only: bool = False
+    avg_stay_minutes: int | None = Field(default=None, ge=5, le=600)
+    opening_hours: OpeningHours
+    tags: list[_short(40)] = Field(default=[], max_length=10)
+    description: Annotated[str, Field(max_length=1000)] | None = None
+    photos: list[Annotated[str, Field(pattern=r"^https://\S+$", max_length=500)]] = Field(default=[], max_length=10)
+    contact: _short(120) | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _blank_to_none(cls, data):
+        """Trim text; an empty optional field means "not given" (form inputs send "")."""
+        if not isinstance(data, dict):
+            return data
+        out = {}
+        for k, v in data.items():
+            if isinstance(v, str):
+                v = v.strip() or None
+            elif isinstance(v, list):
+                v = [x.strip() if isinstance(x, str) else x for x in v]
+                v = [x for x in v if x not in ("", None)]
+            out[k] = v
+        return out
+
+    @model_validator(mode="after")
+    def _price_order(self) -> "MerchantPlaceInput":
+        if self.price_min is not None and self.price_max is not None and self.price_min > self.price_max:
+            raise ValueError("price_min must not be greater than price_max")
+        return self
+
+
+class MerchantPlace(MerchantPlaceInput):
+    place_id: str
+
+
+class MerchantPlaceCreated(MerchantPlace):
+    edit_key: str  # shown once; only its hash is stored

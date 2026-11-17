@@ -34,6 +34,7 @@ FE dev server proxies `/api` to `http://localhost:8000`, so run FE with `VITE_US
 - `app/main.py` – FastAPI app; routers mounted under `/api`
 - `app/routers/places.py` – `GET /api/places/{place_id}`
 - `app/routers/recommendations.py` – `POST /api/recommendations`; calls `recommend()` from `AI/recommend.py`
+- `app/routers/merchant.py` – `POST/GET/PUT /api/merchant/places`; owners register and edit their place with an edit key
 - `app/routers/exchange_rate.py` – `GET /api/exchange-rate`; PHP→KRW, cached in memory
 - `scripts/` – `apply_schema.py` (DB schema), `make_data_template.py` (UST spreadsheet), `import_places.py` (spreadsheet → DB)
 - `app/errors.py` – `{"error": {"code", "message"}}` responses; validation errors → 400 `INVALID_REQUEST`
@@ -78,3 +79,13 @@ BE\.venv\Scripts\python.exe BE\scripts\import_places.py path\to\filled.xlsx
 - Fetched at most every 12 h; on failure the last good rate is served and the sources are
   retried after 10 min. With no rate at all → 503 `RATE_UNAVAILABLE` (FE hides the KRW line)
 - `updated_at` = when the server fetched it. The cache is per process, so a restart refetches
+
+## Merchant registration
+
+- `POST /api/merchant/places` inserts a place with id `BIZ-NNNN` (sequence `merchant_place_seq`), `is_small_business = true`,
+  `source = 'merchant'`, and returns a random `edit_key` once. Only `sha256(edit_key)` is stored (`edit_key_hash`).
+- `GET`/`PUT /api/merchant/places/{id}` need the key in `X-Edit-Key`. UST-imported rows have `edit_key_hash = null`, so they answer 401.
+- Lost key: set a new one by hand, e.g. in Python `hashlib.sha256(b"new-key").hexdigest()`, then
+  `update places set edit_key_hash = '<that hex>' where place_id = 'BIZ-0001';`
+- Re-run `scripts/apply_schema.py` after pulling: it adds `edit_key_hash` and the sequence.
+- FE screens: `/merchant` (start / open with key), `/merchant/new`, `/merchant/edit/:placeId` (English; the owners are in the Philippines).

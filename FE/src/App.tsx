@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Splash from './components/Splash.tsx'
 import InputPage from './pages/InputPage.tsx'
+import MerchantFormPage from './pages/MerchantFormPage.tsx'
+import MerchantPage from './pages/MerchantPage.tsx'
 import PlacePage from './pages/PlacePage.tsx'
 import ResultPage from './pages/ResultPage.tsx'
 
@@ -34,6 +36,9 @@ export default function App() {
         <Route path="/" element={<InputPage />} />
         <Route path="/route" element={<ResultPage />} />
         <Route path="/places/:placeId" element={<PlacePage />} />
+        <Route path="/merchant" element={<MerchantPage />} />
+        <Route path="/merchant/new" element={<MerchantFormPage />} />
+        <Route path="/merchant/edit/:placeId" element={<MerchantFormPage />} />
       </Routes>
       {showSplash && <Splash onDone={finishSplash} />}
     </div>
