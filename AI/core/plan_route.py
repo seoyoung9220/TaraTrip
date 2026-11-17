@@ -33,16 +33,57 @@ DEFAULTS = {
     "maxStops": INF,         # 하루 최대 장소 수
     "maxMeals": INF,         # 먹는 곳(장소의 isMeal=True) 최대 개수
     "maxMealsInRow": INF,    # 먹는 곳 최대 연속 개수 (2면 밥→카페까지 OK, 3연속 금지)
+    # 이동수단 (None = 전부 도보, JS 버전과 같은 동작). 쓰려면 TRANSPORT_EXAMPLE 같은 dict를 넘김
+    "transport": None,
+}
+
+# 이동수단 설정 예시 (recommend.py가 마닐라 요금으로 채워서 넘김)
+#   거리(골목 보정한 km)가 walkMaxKm 이하면 도보, taxiMinKm 미만이면 지프니, 그 이상이면 택시
+#   단, 걸어서 가는 게 타는 것보다 빠르면 도보
+TRANSPORT_EXAMPLE = {
+    "walkMaxKm": 1.0,
+    "jeepney": {"speedKmh": 12, "waitMin": 10, "baseFare": 14, "baseKm": 4, "perKm": 2},
+    "taxiMinKm": 8,
+    "taxi": {"speedKmh": 18, "waitMin": 5, "flagDown": 50, "perKm": 15, "perMin": 2},
 }
 
 
-def walk_minutes(a, b, opt):
-    """두 좌표 사이 도보 시간(분): 하버사인 직선거리 × 골목 보정 ÷ 걷는 속도"""
+def road_km(a, b, opt):
+    """두 좌표 사이 거리(km): 하버사인 직선거리 × 골목 보정"""
     R, rad = 6371, math.pi / 180
     d_lat, d_lng = (b[0] - a[0]) * rad, (b[1] - a[1]) * rad
     h = math.sin(d_lat / 2) ** 2 + math.cos(a[0] * rad) * math.cos(b[0] * rad) * math.sin(d_lng / 2) ** 2
-    km = 2 * R * math.asin(math.sqrt(h))
-    return js_round((km * opt["detourFactor"]) / opt["walkSpeedKmh"] * 60)
+    return 2 * R * math.asin(math.sqrt(h)) * opt["detourFactor"]
+
+
+def walk_minutes(a, b, opt):
+    """두 좌표 사이 도보 시간(분)"""
+    return js_round(road_km(a, b, opt) / opt["walkSpeedKmh"] * 60)
+
+
+def leg(a, b, opt):
+    """한 구간 이동 → (수단, 걸리는 분, 요금 페소)"""
+    walk = walk_minutes(a, b, opt)
+    tr = opt.get("transport")
+    if not tr:
+        return "walk", walk, 0
+    km = road_km(a, b, opt)
+    if km <= tr["walkMaxKm"]:
+        return "walk", walk, 0
+    if km < tr["taxiMinKm"]:
+        j = tr["jeepney"]
+        minutes = j["waitMin"] + js_round(km / j["speedKmh"] * 60)
+        fare = j["baseFare"] + max(0, math.ceil(km - j["baseKm"])) * j["perKm"]
+        mode = "jeepney"
+    else:
+        x = tr["taxi"]
+        ride = js_round(km / x["speedKmh"] * 60)
+        minutes = x["waitMin"] + ride
+        fare = js_round(x["flagDown"] + x["perKm"] * km + x["perMin"] * ride)
+        mode = "taxi"
+    if walk <= minutes:  # 타는 것보다 걷는 게 빠르면 도보
+        return "walk", walk, 0
+    return mode, minutes, fare
 
 
 def plan_route(input):
@@ -54,7 +95,10 @@ def plan_route(input):
       places: [{ name, lat, lng, opens:"HH:MM", closes:"HH:MM",
                  stayMin, costPhp, smallBiz:bool, score:1~10, isMeal:bool(선택) }]
       options: DEFAULTS 덮어쓰기 (선택)
-    반환: { stops, totalCost, totalWalkMin, returnTime, returnWalkMin, skipped }
+    반환: { stops, totalCost, totalWalkMin, totalFare, returnTime, returnWalkMin, returnMode, returnFare, skipped }
+      stops[i]: { name, arrive, walkMin(이동 분, 수단 무관), mode, fare, stay, cost, smallBiz }
+      totalCost = 장소 비용 + 모든 교통비(출발지→첫 장소, 마지막 장소→출발지 포함)
+      totalWalkMin = 실제로 걷는 구간의 분만 합친 값
     """
     opt = {**DEFAULTS, **(input.get("options") or {})}
     START, END = to_min(input["start"]), to_min(input["end"])
@@ -68,10 +112,21 @@ def plan_route(input):
     } for p in input["places"]]
     n = len(P)
 
-    # 이동시간 행렬: 인덱스 n = 출발지
+    # 이동 행렬: 인덱스 n = 출발지. T = 분, F = 요금, M = 수단
     loc = [[p["lat"], p["lng"]] for p in P] + [input["startLocation"]]
-    T = [[walk_minutes(a, b, opt) for b in loc] for a in loc]
+    L = [[leg(a, b, opt) for b in loc] for a in loc]
+    M = [[x[0] for x in row] for row in L]
+    T = [[x[1] for x in row] for row in L]
+    F = [[x[2] for x in row] for row in L]
     DEPOT = n
+
+    def leg_cost(i, j):
+        """목표 함수에 더할 이동 비용: 걷는 분은 travelWeight만큼 무겁게, 타는 분은 그대로"""
+        return T[i][j] * (opt["travelWeight"] if M[i][j] == "walk" else 1)
+
+    def too_far_on_foot(i, j):
+        """maxLegMin은 걷는 구간에만 적용 (타는 구간은 길어도 괜찮음)"""
+        return M[i][j] == "walk" and T[i][j] > opt["maxLegMin"]
 
     def evaluate(route):
         """경로를 시간순으로 따라가며 가능한지 확인
@@ -89,10 +144,11 @@ def plan_route(input):
                     return None
             else:
                 meals_in_row = 0
-            if T[prev][i] > opt["maxLegMin"]:   # 한 번에 너무 멀리 걷는 구간 금지
+            if too_far_on_foot(prev, i):        # 한 번에 너무 멀리 걷는 구간 금지
                 return None
             t += T[prev][i]
-            travel += T[prev][i] * opt["travelWeight"]
+            travel += leg_cost(prev, i)
+            cost += F[prev][i]                  # 교통비도 예산에 포함
             if t < p["open"]:                   # 오픈 전이면 기다림
                 travel += (p["open"] - t) * opt["waitWeight"]
                 t = p["open"]
@@ -103,11 +159,12 @@ def plan_route(input):
             if cost > budget:                   # 예산 초과
                 return None
             prev = i
-        if T[prev][DEPOT] > opt["maxLegMin"]:
+        if too_far_on_foot(prev, DEPOT):
             return None
         t += T[prev][DEPOT]
-        travel += T[prev][DEPOT] * opt["travelWeight"]
-        if t > END:                             # 종료 시간 초과
+        travel += leg_cost(prev, DEPOT)
+        cost += F[prev][DEPOT]                  # 돌아가는 교통비까지 예산 안에
+        if t > END or cost > budget:            # 종료 시간·예산 초과
             return None
         return travel
 
@@ -219,16 +276,19 @@ def plan_route(input):
 
     # 결과 만들기
     stops = []
-    t, prev, total_cost, total_walk = START, DEPOT, 0, 0
+    t, prev, total_cost, total_walk, total_fare = START, DEPOT, 0, 0, 0
     for i in route:
         p = P[i]
-        walk = T[prev][i]
-        t += walk
-        total_walk += walk
+        move = T[prev][i]
+        t += move
+        if M[prev][i] == "walk":
+            total_walk += move
+        total_fare += F[prev][i]
         if t < p["open"]:
             t = p["open"]
         stops.append({
-            "name": p["name"], "arrive": to_hhmm(t), "walkMin": walk,
+            "name": p["name"], "arrive": to_hhmm(t), "walkMin": move,
+            "mode": M[prev][i], "fare": F[prev][i],
             "stay": p["stayMin"], "cost": p["costPhp"], "smallBiz": bool(p.get("smallBiz")),
         })
         t += p["stayMin"]
@@ -236,13 +296,18 @@ def plan_route(input):
         prev = i
     back = T[prev][DEPOT]
     t += back
-    total_walk += back
+    if M[prev][DEPOT] == "walk":
+        total_walk += back
+    total_fare += F[prev][DEPOT]
 
     return {
         "stops": stops,
-        "totalCost": total_cost,
+        "totalCost": total_cost + total_fare,
         "totalWalkMin": total_walk,
+        "totalFare": total_fare,
         "returnTime": to_hhmm(t),
         "returnWalkMin": back,
+        "returnMode": M[prev][DEPOT],
+        "returnFare": F[prev][DEPOT],
         "skipped": [p["name"] for i, p in enumerate(P) if i not in route],
     }

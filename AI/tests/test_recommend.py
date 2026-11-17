@@ -175,6 +175,49 @@ def test_course_length_follows_time():
     assert len(long["stops"]) > len(short["stops"])
 
 
+def test_transport_modes():
+    """장소가 멀리 흩어져 있으면 지프니·택시를 타고, 요금이 예산에 들어가는지 (서영 님 피드백)"""
+    from recommend import TRANSPORT
+    far = [
+        {**ROWS[0], "place_id": "FAR-1", "name": "Makati Museum", "lat": 14.5547, "lng": 121.0244, "district": "Makati"},
+        {**ROWS[5], "place_id": "FAR-2", "name": "Cubao Food Hall", "lat": 14.6190, "lng": 121.0530, "district": "Cubao"},
+        {**ROWS[6], "place_id": "FAR-3", "name": "Alabang Cafe", "lat": 14.4195, "lng": 121.0390, "district": "Alabang"},
+    ]
+    rows = ROWS + far
+    # 마카티에서 출발: 인트라무로스까지 걸어가면 1시간 넘음 → 첫 구간이 탈것이어야 함
+    req = {**REQ, "budget": {"amount": 2000, "currency": "PHP"}, "start_location": {"lat": 14.5547, "lng": 121.0244},
+           "start_time": "09:00", "end_time": "18:00"}
+    res = recommend(req, rows, travel_date=TUE)
+    check_shape(res, 2000)
+    stops = res["stops"]
+    assert stops[0]["transport"] is None  # 명세: 첫 장소는 null
+    walk_cap = round(TRANSPORT["walkMaxKm"] / 4.5 * 60) + 1  # 도보 기준 거리 ≈ 13~14분
+    for s in stops[1:]:
+        t = s["transport"]
+        assert t["mode"] in ("walk", "jeepney", "taxi"), t
+        assert t["cost"] == s["cost_breakdown"]["transport"]
+        if t["mode"] == "walk":
+            assert t["cost"] == 0 and t["minutes"] <= walk_cap, t
+        else:
+            assert t["cost"] > 0, t
+    assert res["total_cost"] == sum(s["est_cost"] + s["transport"]["cost"] for s in stops[1:]) + stops[0]["est_cost"]
+    # 첫 도착 시간: 걸어서 가면 10시 넘어야 하지만 탈것이라 훨씬 빠름
+    assert stops[0]["arrival_time"] < "10:00", stops[0]["arrival_time"]
+    # 요약문의 걷는 시간은 도보 구간만
+    walked = sum(s["transport"]["minutes"] for s in stops[1:] if s["transport"]["mode"] == "walk")
+    assert "걷는 시간" in res["summary"] or "걷는 구간" in res["summary"], res["summary"]
+    # 교통비까지 합쳐서 예산 안
+    import re
+    spend = int(re.search(r"중 (\d+)페소", res["summary"]).group(1))
+    assert res["total_cost"] <= spend <= 2000
+    # 걷기 싫어 → 도보 구간이 더 짧아짐
+    llm = lambda m: '{"budget":null,"start":null,"end":null,"tags":[],"areas":[],"mustVisit":[],"avoid":[],"preferenceText":"","language":"ko","isTripRequest":true,"walking":"minimal"}'
+    lazy = recommend({**req, "free_text": "많이 걷는 건 싫어"}, rows, call_llm=llm, travel_date=TUE)
+    for s in lazy["stops"][1:]:
+        if s["transport"]["mode"] == "walk":
+            assert s["transport"]["minutes"] <= 12, s["transport"]
+
+
 def test_budget_too_low():
     rows = [{**r, "entry_fee": 500, "price_min": 500, "price_max": 500} for r in ROWS]
     try:

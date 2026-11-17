@@ -16,7 +16,9 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
   - 폼 값(budget 등)이 free_text보다 우선, free_text는 빈 곳만 채움
   - 출발·종료 시각: start_time/end_time > free_text의 시간 > 기본 10:00~16:00 (docs/API.md)
   - 여행 날짜: travel_date 인자 > 요청의 travel_date > 마닐라 기준 오늘 → 그 요일 영업시간 사용
-  - 첫 장소의 transport는 명세대로 null, 이동은 지금은 전부 도보(walk, 0페소)
+  - 이동수단: 1km 이하는 도보, 8km 미만은 지프니, 그 이상은 택시 (걷는 게 더 빠르면 도보). 요금은 TRANSPORT 참고
+    첫 장소의 transport는 명세대로 null. 출발지→첫 장소, 마지막 장소→출발지 구간도 같은 기준으로
+    시간·요금을 계산해서 도착 시각과 예산에는 반영하고, summary에 따로 적음
   - summary·reason 언어: recommend(lang=...)로 넘긴 값 > free_text의 언어 > 기본 "ko" (앱 화면이 한국어)
   - 코스 길이·식사: 6시간 기준 최대 5곳(여유 4, 알차게 6), 시간이 길거나 짧으면 비례해서 조정
     먹는 곳 최대 2곳(음식 선택 시 3곳, 8시간 이상이면 +1), 먹는 곳 3연속 금지
@@ -59,6 +61,20 @@ MAX_STOPS = {"relaxed": 4, "normal": 5, "packed": 6}  # 페이스별 최대 장�
 BASE_HOURS = 6                                        # MAX_STOPS가 기준으로 삼는 여행 시간
 MAX_STOPS_EXTRA = 2                                   # 시간이 아무리 길어도 MAX_STOPS보다 이만큼까지만 더
 LONG_DAY_HOURS = 8                                    # 이 시간 이상이면 먹는 곳 1곳 더 (점심 + 저녁)
+
+# 이동수단·요금 (메트로 마닐라, 2026년 기준 추정값. 발표 전에 최신 요금표로 한 번 확인하세요)
+#   지프니: 2026년 9월 인상 후 전통 지프니 최저요금 14페소(첫 4km). km당 추가요금은 추정
+#   택시: 일반 택시 기본요금·km·분당 요금은 추정 (공항 택시는 더 비쌈)
+#   속도·대기시간은 마닐라 교통체증을 감안한 대략적인 값
+TRANSPORT = {
+    "walkMaxKm": 1.0,                 # 이 거리(골목 보정 km) 이하는 걸어감 (약 13분)
+    "jeepney": {"speedKmh": 12, "waitMin": 10, "baseFare": 14, "baseKm": 4, "perKm": 2},
+    "taxiMinKm": 8,                   # 이 거리 이상은 택시
+    "taxi": {"speedKmh": 18, "waitMin": 5, "flagDown": 50, "perKm": 15, "perMin": 2},
+}
+WALK_MAX_KM_LAZY = 0.5                # "걷기 싫어"면 이 거리까지만 걸음
+MODE_KO = {"walk": "도보", "jeepney": "지프니", "tricycle": "트라이시클", "taxi": "택시", "other": "기타"}
+FIRST_LEG_IN_RESPONSE = False         # True면 첫 장소에도 transport를 채움 (지금 명세는 null)
 MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"으로 세는 DB 카테고리 (카페·빵집도 restaurant)
 MAX_MEALS = 2                                         # 먹는 곳 최대 개수
 MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 먹거리 위주로 요청했을 때
@@ -233,21 +249,38 @@ def _reason(p, query, personal, lang):
     return _say(lang, " · ".join(parts), ". ".join(parts) + ".")
 
 
-def _summary(stops, query, total_cost, walk_min, lang):
+def _summary(stops, query, route, lang):
+    """전체 설명. 돈은 출발지 왕복 교통비까지 포함한 실제 지출, 걷는 시간은 도보 구간만"""
     n, small = len(stops), sum(1 for s in stops if s["_smallBiz"])
     areas = list(dict.fromkeys(s["_area"] for s in stops if s["_area"]))
     where = ", ".join(areas)
+    legs = [s["mode"] for s in route["stops"]] + [route["returnMode"]]
+    rides = {m: legs.count(m) for m in ("jeepney", "tricycle", "taxi") if legs.count(m)}
+    first = route["stops"][0]
+    spend, walk, fare = route["totalCost"], route["totalWalkMin"], route["totalFare"]
     if lang == "ko":
         txt = f"{query['start']}부터 {n}곳을 도는 코스예요"
         txt += f" ({where})" if where else ""
-        txt += f". 예산 {query['budgetPhp']}페소 중 {total_cost}페소를 쓰고, 총 {walk_min}분 정도 걸어요."
+        txt += f". 예산 {query['budgetPhp']}페소 중 {spend}페소를 써요"
+        txt += f"(출발지 왕복 교통비 포함)." if fare else "."
+        txt += f" 걷는 시간은 총 {walk}분이에요." if walk else " 걷는 구간은 거의 없어요."
+        if rides:
+            txt += " " + "·".join(f"{MODE_KO[m]} {c}번" for m, c in rides.items()) + f"을 타요(교통비 {fare}페소)."
+        if first["mode"] != "walk":
+            txt += f" 출발지에서 첫 장소까지는 {MODE_KO[first['mode']]}로 {first['walkMin']}분 걸려요."
         if small:
             txt += f" 현지 소상공인 가게 {small}곳이 포함돼 있어요."
         return txt
     article = "An" if str(n)[0] == "8" or n in (11, 18) else "A"
     txt = f"{article} {n}-stop route starting at {query['start']}"
     txt += f" around {where}" if where else ""
-    txt += f". It uses ₱{total_cost} of your ₱{query['budgetPhp']} budget with about {walk_min} minutes of walking."
+    txt += f". It uses ₱{spend} of your ₱{query['budgetPhp']} budget"
+    txt += " (round-trip fares from your start included)." if fare else "."
+    txt += f" About {walk} minutes of walking." if walk else " Almost no walking."
+    if rides:
+        txt += " Rides: " + ", ".join(f"{m} ×{c}" for m, c in rides.items()) + f" (₱{fare} in fares)."
+    if first["mode"] != "walk":
+        txt += f" Getting to the first stop takes {first['walkMin']} min by {first['mode']}."
     if small:
         txt += f" Includes {small} locally owned small business{'es' if small > 1 else ''}."
     return txt
@@ -291,6 +324,10 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     b = build_plan_input(query, places, start_location, personal)
     plan_input = b["planInput"]
     plan_input["options"].update(_limits(query, req))
+    plan_input["options"]["transport"] = {
+        **TRANSPORT,
+        "walkMaxKm": WALK_MAX_KM_LAZY if query["walking"] == "minimal" else TRANSPORT["walkMaxKm"],
+    }
     route = plan_route(plan_input)
 
     if not route["stops"]:
@@ -311,7 +348,8 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     for i, s in enumerate(route["stops"]):
         p = by_name[s["name"]]
         row = p["_row"]
-        transport = None if i == 0 else {"mode": "walk", "minutes": s["walkMin"], "cost": 0}
+        show = i > 0 or FIRST_LEG_IN_RESPONSE
+        transport = {"mode": s["mode"], "minutes": s["walkMin"], "cost": s["fare"]} if show else None
         stops.append({
             "order": i + 1,
             "place_id": row["place_id"],
@@ -323,7 +361,8 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
             "est_cost": s["cost"],
             "stay_minutes": s["stay"],
             "transport": transport,
-            "cost_breakdown": {"food": p["_food"], "entry": p["_entry"], "transport": 0},
+            "cost_breakdown": {"food": p["_food"], "entry": p["_entry"],
+                               "transport": transport["cost"] if transport else 0},
             "reason": _reason(p, query, personal, lang),
             "_smallBiz": p["smallBiz"], "_area": p["area"],
         })
@@ -331,7 +370,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     total_cost = sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in stops)
     last = stops[-1]
     total_minutes = to_min(last["arrival_time"]) + last["stay_minutes"] - to_min(stops[0]["arrival_time"])
-    summary = _summary(stops, query, total_cost, route["totalWalkMin"], lang)
+    summary = _summary(stops, query, route, lang)
     for s in stops:
         s.pop("_smallBiz")
         s.pop("_area")
