@@ -49,7 +49,9 @@ def create_recommendation(body: dict, conn=Depends(get_conn)):
 |---|---|
 | 폼 값과 `free_text`가 다를 때 | 폼 값 우선. 예산은 항상 폼 값, `free_text`는 시간·취향·제외할 곳 등 빈 곳만 채움 |
 | 출발·종료 시각 | `start_time`/`end_time` > `free_text`의 시간 > 기본 10:00~16:00. 여행 날짜는 `travel_date`(없으면 마닐라 기준 오늘)의 요일 영업시간 사용 |
-| 이동 수단 | 지금은 전부 도보 (`walk`, 0페소). 첫 장소는 명세대로 `transport: null` |
+| 이동 수단 | 거리(직선 × 1.3)가 1km 이하면 도보, 8km 미만이면 지프니, 그 이상은 택시. 걷는 게 더 빠르면 도보. "걷기 싫어"면 도보는 0.5km까지. 요금은 `recommend.py`의 `TRANSPORT` (지프니 최저 14페소는 2026년 9월 요금, km당·택시 요금은 추정) |
+| 교통비 | `transport.cost` = `cost_breakdown.transport`, `total_cost`는 명세대로 각 장소 비용의 합. 예산 검사는 출발지→첫 장소, 마지막 장소→출발지 교통비까지 포함 |
+| 첫 구간 | 명세대로 첫 장소 `transport: null`. 출발지→첫 장소도 같은 기준으로 계산해서 도착 시각에 반영하고 `summary`에 적음 (`FIRST_LEG_IN_RESPONSE = True`로 바꾸면 첫 장소에도 채움) |
 | `est_cost` | 식당·시장·가게는 `price_min`~`price_max`의 가운데 값, 관광지는 `entry_fee` |
 | `summary`, `reason` 언어 | `recommend(..., lang="ko")`로 넘긴 값이 최우선. 없으면 `free_text`의 언어, 그것도 없으면 한국어. 지금 문장은 한국어·영어만 있음 |
 | 영업시간 | 여행 날짜(기본: 마닐라 기준 오늘)의 요일 값 사용. `closed`면 제외, 비어 있으면 09:00-18:00으로 가정 |
