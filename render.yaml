@@ -1,0 +1,20 @@
+# Render Blueprint for the FastAPI backend (docs/DEPLOY.md).
+# Built from the repo root because BE imports the AI module from ../AI.
+services:
+  - type: web
+    name: taratrip-api
+    runtime: python
+    plan: free
+    region: singapore            # closest Render region to Manila and to Supabase (Tokyo)
+    buildCommand: pip install -r BE/requirements.txt
+    startCommand: cd BE && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.7            # same as the local BE/.venv
+      - key: DATABASE_URL        # Supabase session pooler URL, from BE/.env
+        sync: false
+      - key: CF_ACCOUNT_ID       # optional: free_text parsing + taste matching (ask Junwon)
+        sync: false
+      - key: CF_API_TOKEN
+        sync: false
