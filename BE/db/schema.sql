@@ -74,3 +74,10 @@ create trigger places_set_updated_at
 -- The FastAPI server connects directly with the DB URL, so the public Supabase API
 -- must not expose this table. RLS on with no policies = no access via the anon key.
 alter table places enable row level security;
+
+-- Small-business self-registration (app/routers/merchant.py).
+-- SHA-256 of the owner's edit key; null = not editable through the merchant API (UST imports).
+alter table places add column if not exists edit_key_hash text;
+-- Owner-registered places get ids BIZ-0001, BIZ-0002, ... so they never clash with the
+-- MNL-xxxx ids the UST spreadsheet assigns.
+create sequence if not exists merchant_place_seq;

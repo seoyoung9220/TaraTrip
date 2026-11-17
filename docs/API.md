@@ -13,6 +13,7 @@ All parts are developed against this spec. Any change to it needs agreement from
 | `GET /api/places/{place_id}` | Seoyoung (API), Hyungeun (DB) |
 | `GET /api/exchange-rate` | Hyungeun |
 | `GET /api/regions` | Seoyoung (API), Hyungeun (DB) |
+| `POST/GET/PUT /api/merchant/places` | Hyungeun |
 
 ---
 
@@ -183,6 +184,79 @@ An empty database gives `{ "regions": [] }`. The FE then shows its built-in defa
 
 ---
 
+## /api/merchant/places
+
+Small-business owners list their own place and edit it later. There are no accounts in the MVP: registering returns an `edit_key` **once**, and the owner sends it back in the `X-Edit-Key` header. The server stores only its hash, so a lost key cannot be shown again (the BE owner can reset it in the DB). Places imported from the UST spreadsheet have no key and cannot be changed here.
+
+A registered place is live right away: it shows up in `GET /api/places/{place_id}`, `GET /api/regions` (its `district`) and recommendations. It is saved with `is_small_business = true` and `source = "merchant"`.
+
+### Place body
+
+`POST` and `PUT` take the same body; `GET`/`PUT` answer it back with `place_id`.
+
+```json
+{
+  "name": "Aling Nena's Carinderia",
+  "category": "restaurant",
+  "lat": 14.5995,
+  "lng": 120.9748,
+  "address": "123 Ongpin St, Binondo, Manila",
+  "district": "Binondo",
+  "price_min": 80,
+  "price_max": 200,
+  "entry_fee": 0,
+  "signature_menu": "Adobo rice meal",
+  "signature_price": 95,
+  "cash_only": true,
+  "avg_stay_minutes": 40,
+  "opening_hours": { "mon": "07:00-19:00", "tue": "07:00-19:00", "wed": "07:00-19:00", "thu": "07:00-19:00", "fri": "07:00-19:00", "sat": "07:00-19:00", "sun": "closed" },
+  "tags": ["lutong bahay", "silog"],
+  "description": "Home-cooked Filipino meals since 1998.",
+  "photos": ["https://..."],
+  "contact": "0917 123 4567"
+}
+```
+
+| Field | Type | Required | Rule |
+|---|---|---|---|
+| `name` | string | yes | 1–120 chars |
+| `category` | string | yes | `restaurant` \| `market` \| `shop` \| `attraction` |
+| `lat`, `lng` | number | yes | Inside the Philippines (lat 4–22, lng 116–127) |
+| `address` | string | yes | 1–300 chars |
+| `district` | string \| null | no | Becomes a `GET /api/regions` entry |
+| `price_min`, `price_max` | integer \| null | no | PHP per person, 0–100000, `price_min <= price_max` |
+| `entry_fee` | integer | no | PHP, default `0` |
+| `signature_menu`, `signature_price` | string \| null, integer \| null | no | Same meaning as in `GET /api/places/{place_id}` |
+| `cash_only` | boolean | no | Default `false` |
+| `avg_stay_minutes` | integer \| null | no | 5–600 |
+| `opening_hours` | object | yes | All seven keys `mon`…`sun`, each `"HH:MM-HH:MM"` or `"closed"` |
+| `tags` | string[] | no | Up to 10, each up to 40 chars |
+| `description` | string \| null | no | Up to 1000 chars |
+| `photos` | string[] | no | Up to 10 `https://` URLs |
+| `contact` | string \| null | no | Phone, Facebook page, etc. |
+
+Text is trimmed; an empty string in an optional field counts as `null`.
+
+### POST /api/merchant/places → `201 Created`
+
+The place body plus `place_id` (`BIZ-0001`, `BIZ-0002`, …) and `edit_key`:
+
+```json
+{ "place_id": "BIZ-0001", "edit_key": "q3V9x-2mKp0aLw7Z", "name": "Aling Nena's Carinderia", "...": "..." }
+```
+
+### GET /api/merchant/places/{place_id} → `200 OK`
+
+Header `X-Edit-Key: <edit_key>`. Returns the place body with `place_id` (per-day `opening_hours`, unlike the traveler-facing detail).
+
+### PUT /api/merchant/places/{place_id} → `200 OK`
+
+Header `X-Edit-Key: <edit_key>`. Replaces every field with the body; returns the saved place body with `place_id`.
+
+Errors: `400 INVALID_REQUEST` (body), `401 INVALID_EDIT_KEY` (missing or wrong key, or a UST-imported place), `404 PLACE_NOT_FOUND`.
+
+---
+
 ## Errors
 
 ```json
@@ -192,6 +266,7 @@ An empty database gives `{ "regions": [] }`. The FE then shows its built-in defa
 | Status | `code` | When |
 |---|---|---|
 | 400 | `INVALID_REQUEST` | Missing or invalid fields |
+| 401 | `INVALID_EDIT_KEY` | Missing or wrong `X-Edit-Key` (`/api/merchant/places/{place_id}`) |
 | 404 | `PLACE_NOT_FOUND` | Unknown `place_id` |
 | 422 | `BUDGET_TOO_LOW` | No route fits the budget |
 | 422 | `NO_RESULTS` | No places match the request |

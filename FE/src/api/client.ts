@@ -3,6 +3,9 @@ import {
   ApiError,
   type ApiErrorCode,
   type ExchangeRate,
+  type MerchantPlace,
+  type MerchantPlaceCreated,
+  type MerchantPlaceInput,
   type PlaceDetail,
   type Recommendation,
   type RecommendationRequest,
@@ -74,4 +77,43 @@ export function getExchangeRate(): Promise<ExchangeRate> {
 export function getRegions(): Promise<Regions> {
   if (USE_MOCK) return delay(mockRegions)
   return request('/regions')
+}
+
+// ── merchant ──
+// Mock mode keeps registered places in memory (lost on reload); the edit key is always "mock-key".
+const mockOwned = new Map<string, MerchantPlace>()
+
+function mockOwn(placeId: string, key: string): MerchantPlace {
+  const place = mockOwned.get(placeId)
+  if (!place) throw new ApiError('PLACE_NOT_FOUND', 'Unknown place', 404)
+  if (key !== 'mock-key') throw new ApiError('INVALID_EDIT_KEY', 'Wrong edit key', 401)
+  return place
+}
+
+export function registerPlace(body: MerchantPlaceInput): Promise<MerchantPlaceCreated> {
+  if (USE_MOCK) {
+    const place = { ...body, place_id: `BIZ-${String(mockOwned.size + 1).padStart(4, '0')}` }
+    mockOwned.set(place.place_id, place)
+    return delay({ ...place, edit_key: 'mock-key' })
+  }
+  return request('/merchant/places', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export async function getOwnPlace(placeId: string, key: string): Promise<MerchantPlace> {
+  if (USE_MOCK) return delay(mockOwn(placeId, key))
+  return request(`/merchant/places/${encodeURIComponent(placeId)}`, { headers: { 'X-Edit-Key': key } })
+}
+
+export async function updateOwnPlace(placeId: string, key: string, body: MerchantPlaceInput): Promise<MerchantPlace> {
+  if (USE_MOCK) {
+    mockOwn(placeId, key)
+    const place = { ...body, place_id: placeId }
+    mockOwned.set(placeId, place)
+    return delay(place)
+  }
+  return request(`/merchant/places/${encodeURIComponent(placeId)}`, {
+    method: 'PUT',
+    headers: { 'X-Edit-Key': key },
+    body: JSON.stringify(body),
+  })
 }
