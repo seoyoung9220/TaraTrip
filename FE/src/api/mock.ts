@@ -1,5 +1,14 @@
 // Sample responses shaped like docs/API.md. Names and amounts are placeholders, not real data.
-import type { ExchangeRate, PlaceDetail, Recommendation, RecommendationRequest, Regions, Stop } from './types.ts'
+import type {
+  ExchangeRate,
+  LatLng,
+  PlaceDetail,
+  Recommendation,
+  RecommendationRequest,
+  Regions,
+  Stop,
+  Transport,
+} from './types.ts'
 
 export const mockRecommendation: Recommendation = {
   route_id: 'mock-route-1',
@@ -41,8 +50,8 @@ export const mockRecommendation: Recommendation = {
       place_id: 'mock-place-3',
       name: '[관광지 이름]',
       category: 'attraction',
-      lat: 14.5978,
-      lng: 120.9925,
+      lat: 14.5869,
+      lng: 120.9756,
       arrival_time: '12:40',
       est_cost: 150,
       stay_minutes: 90,
@@ -55,8 +64,8 @@ export const mockRecommendation: Recommendation = {
       place_id: 'mock-place-4',
       name: '[가게 이름]',
       category: 'shop',
-      lat: 14.6061,
-      lng: 120.9968,
+      lat: 14.5905,
+      lng: 120.979,
       arrival_time: '14:30',
       est_cost: 280,
       stay_minutes: 45,
@@ -68,6 +77,7 @@ export const mockRecommendation: Recommendation = {
 }
 
 // Extra candidates so longer trips get longer mock routes.
+// mockRouteFor() recomputes every `transport` from the coordinates; the values here are only the spec example.
 const EXTRA_STOPS: Stop[] = [
   {
     order: 5,
@@ -88,8 +98,8 @@ const EXTRA_STOPS: Stop[] = [
     place_id: 'mock-place-6',
     name: '[관광지 이름 2]',
     category: 'attraction',
-    lat: 14.6003,
-    lng: 120.9897,
+    lat: 14.5547,
+    lng: 121.0244,
     arrival_time: '16:30',
     est_cost: 75,
     stay_minutes: 60,
@@ -116,6 +126,45 @@ const EXTRA_STOPS: Stop[] = [
 const MOCK_POOL = [...mockRecommendation.stops, ...EXTRA_STOPS]
 const isMeal = (s: Stop) => s.category === 'restaurant' || s.category === 'market'
 
+// Same numbers as TRANSPORT in AI/recommend.py and leg() in AI/core/plan_route.py (PR #21).
+const WALK_KMH = 4.5
+const DETOUR = 1.3
+const WALK_MAX_KM = 1
+const TAXI_MIN_KM = 8
+const JEEPNEY = { speedKmh: 12, waitMin: 10, baseFare: 14, baseKm: 4, perKm: 2 }
+const TAXI = { speedKmh: 18, waitMin: 5, flagDown: 50, perKm: 15, perMin: 2 }
+
+function roadKm(a: LatLng, b: LatLng): number {
+  const rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad
+  const dLng = (b.lng - a.lng) * rad
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.sqrt(h)) * DETOUR
+}
+
+/** Walk up to 1 km, jeepney under 8 km, taxi beyond; walk anyway when it is faster. */
+export function mockLeg(a: LatLng, b: LatLng): Transport {
+  const km = roadKm(a, b)
+  const walk: Transport = { mode: 'walk', minutes: Math.round((km / WALK_KMH) * 60), cost: 0 }
+  if (km <= WALK_MAX_KM) return walk
+  let ride: Transport
+  if (km < TAXI_MIN_KM) {
+    ride = {
+      mode: 'jeepney',
+      minutes: JEEPNEY.waitMin + Math.round((km / JEEPNEY.speedKmh) * 60),
+      cost: JEEPNEY.baseFare + Math.max(0, Math.ceil(km - JEEPNEY.baseKm)) * JEEPNEY.perKm,
+    }
+  } else {
+    const rideMin = Math.round((km / TAXI.speedKmh) * 60)
+    ride = {
+      mode: 'taxi',
+      minutes: TAXI.waitMin + rideMin,
+      cost: Math.round(TAXI.flagDown + TAXI.perKm * km + TAXI.perMin * rideMin),
+    }
+  }
+  return walk.minutes <= ride.minutes ? walk : ride
+}
+
 const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
 const toClock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 
@@ -124,6 +173,8 @@ const toClock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0
  * the result screen can be checked with short and long trips:
  * up to round(5 × hours / 6) stops (max 7), up to 2 food stops (3 if foods were picked,
  * +1 for 8 h or more), never 3 food stops in a row, and nothing past end_time (default 10:00–16:00).
+ * Legs follow the AI transport rules (PR #21). Like the AI, the ride from start_location to the
+ * first stop moves the first arrival time but is not in the response (`transport: null`).
  */
 export function mockRouteFor(req: RecommendationRequest): Recommendation {
   const start = toMinutes(req.start_time ?? '10:00')
@@ -134,13 +185,15 @@ export function mockRouteFor(req: RecommendationRequest): Recommendation {
   const end = start + hours * 60
   const stops: Stop[] = []
   let clock = start
+  let prev: LatLng = req.start_location
   for (const s of MOCK_POOL) {
     if (stops.length >= maxStops) break
     const meals = stops.filter(isMeal).length
     const lastTwoMeals = stops.length >= 2 && stops.slice(-2).every(isMeal)
     if (isMeal(s) && (meals >= maxMeals || lastTwoMeals)) continue
-    const transport = stops.length === 0 ? null : s.transport
-    const arrival = clock + (transport?.minutes ?? 0)
+    const leg = mockLeg(prev, s)
+    const transport = stops.length === 0 ? null : leg
+    const arrival = clock + leg.minutes
     // Like the AI module: a stop that would run past end_time is left out (keep at least one).
     if (stops.length > 0 && arrival + s.stay_minutes > end) continue
     stops.push({
@@ -151,12 +204,13 @@ export function mockRouteFor(req: RecommendationRequest): Recommendation {
       cost_breakdown: { ...s.cost_breakdown, transport: transport?.cost ?? 0 },
     })
     clock = arrival + s.stay_minutes
+    prev = s
   }
 
   return {
     ...mockRecommendation,
     total_cost: stops.reduce((sum, s) => sum + s.est_cost + (s.transport?.cost ?? 0), 0),
-    total_minutes: clock - start,
+    total_minutes: clock - toMinutes(stops[0].arrival_time),
     stops,
   }
 }
