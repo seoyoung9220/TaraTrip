@@ -1,5 +1,5 @@
 """GET /api/places/{place_id} (docs/API.md section 2)."""
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends
 
@@ -11,11 +11,6 @@ router = APIRouter()
 
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
-PLACE_COLUMNS = """
-    place_id, name, category, lat, lng, address,
-    price_min, price_max, entry_fee, signature_menu, signature_price, cash_only,
-    opening_hours, description, photos
-"""
 
 
 def format_opening_hours(hours: dict | None) -> str:
@@ -60,7 +55,11 @@ def price_range(row: dict) -> PriceRange:
     return PriceRange(min=lo, max=hi)
 
 
-def to_place_detail(row: dict) -> PlaceDetail:
+def to_place_detail(row: dict, lang: str = "en") -> PlaceDetail:
+    # Korean copies when asked for and already translated; otherwise the stored English.
+    ko = lang == "ko"
+    description = (ko and row.get("description_ko")) or row["description"] or ""
+    signature_menu = (ko and row.get("signature_menu_ko")) or row.get("signature_menu") or None
     return PlaceDetail(
         place_id=row["place_id"],
         name=row["name"],
@@ -70,22 +69,26 @@ def to_place_detail(row: dict) -> PlaceDetail:
         address=row["address"],
         price_range=price_range(row),
         # .get(): rows from before PR #13's columns (and dev samples) may lack them
-        signature_menu=row.get("signature_menu") or None,
+        signature_menu=signature_menu,
         signature_price=row.get("signature_price"),
         cash_only=bool(row.get("cash_only")),
         opening_hours=format_opening_hours(row["opening_hours"]),
-        description=row["description"] or "",
+        description=description,
         photos=row["photos"] or [],
     )
 
 
 @router.get("/places/{place_id}", response_model=PlaceDetail)
 def get_place(
-    place_id: str, conn: Annotated[Any, Depends(get_conn)]  # psycopg.Connection
+    place_id: str,
+    conn: Annotated[Any, Depends(get_conn)],  # psycopg.Connection
+    lang: Literal["ko", "en"] = "ko",
 ) -> PlaceDetail:
     row = conn.execute(
-        f"select {PLACE_COLUMNS} from places where place_id = %s", (place_id,)
+        # select *: works before and after schema.sql adds description_ko / signature_menu_ko,
+        # so deploying this ahead of the DB change never breaks the place screen.
+        "select * from places where place_id = %s", (place_id,)
     ).fetchone()
     if row is None:
         raise ApiError(404, "PLACE_NOT_FOUND", f"No place with id '{place_id}'")
-    return to_place_detail(row)
+    return to_place_detail(row, lang)

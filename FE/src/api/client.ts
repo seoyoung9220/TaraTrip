@@ -60,13 +60,14 @@ export function getRecommendation(req: RecommendationRequest): Promise<Recommend
   return request('/recommendations', { method: 'POST', body: JSON.stringify(req) })
 }
 
-export async function getPlace(placeId: string): Promise<PlaceDetail> {
+/** `lang` picks the Korean or English description and signature menu (docs/API.md). */
+export async function getPlace(placeId: string, lang: 'ko' | 'en'): Promise<PlaceDetail> {
   if (USE_MOCK) {
     const place = mockPlace(placeId)
     if (!place) throw new ApiError('PLACE_NOT_FOUND', 'Unknown place', 404)
     return delay(place)
   }
-  return request(`/places/${encodeURIComponent(placeId)}`)
+  return request(`/places/${encodeURIComponent(placeId)}?lang=${lang}`)
 }
 
 export function getExchangeRate(): Promise<ExchangeRate> {

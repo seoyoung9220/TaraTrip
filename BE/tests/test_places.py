@@ -105,3 +105,36 @@ def test_price_falls_back_to_entry_fee(client_with):
 )
 def test_format_opening_hours(hours, expected):
     assert format_opening_hours(hours) == expected
+
+
+KO_ROW = {
+    **ROW,
+    "description": "Family-run lumpia stall.",
+    "signature_menu": "Fresh lumpia",
+    "description_ko": "가족이 운영하는 룸피아 가게예요.",
+    "signature_menu_ko": "생 룸피아",
+}
+
+
+def test_korean_by_default(client_with):
+    body = client_with(KO_ROW).get("/api/places/MNL-0001").json()
+    assert body["description"] == "가족이 운영하는 룸피아 가게예요."
+    assert body["signature_menu"] == "생 룸피아"
+    assert body["name"] == "Binondo Lumpia House"  # names are never translated
+
+
+def test_english_when_asked(client_with):
+    body = client_with(KO_ROW).get("/api/places/MNL-0001?lang=en").json()
+    assert body["description"] == "Family-run lumpia stall."
+    assert body["signature_menu"] == "Fresh lumpia"
+
+
+def test_english_until_translated(client_with):
+    row = {**KO_ROW, "description_ko": None, "signature_menu_ko": None}
+    body = client_with(row).get("/api/places/MNL-0001?lang=ko").json()
+    assert body["description"] == "Family-run lumpia stall."
+    assert body["signature_menu"] == "Fresh lumpia"
+
+
+def test_unknown_lang(client_with):
+    assert client_with(KO_ROW).get("/api/places/MNL-0001?lang=fr").status_code == 400

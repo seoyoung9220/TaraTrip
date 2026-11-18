@@ -54,6 +54,10 @@ alter table places add column if not exists local_score smallint check (local_sc
 alter table places add column if not exists signature_menu text;
 alter table places add column if not exists signature_price integer check (signature_price >= 0);
 alter table places add column if not exists cash_only boolean not null default false;
+-- Korean copies of description / signature_menu for the Korean app (GET /api/places?lang=ko).
+-- Filled by BE/scripts/translate_places.py; null means "not translated yet" (English is shown).
+alter table places add column if not exists description_ko text;
+alter table places add column if not exists signature_menu_ko text;
 
 create index if not exists places_category_idx on places (category);
 create index if not exists places_tags_idx on places using gin (tags);
