@@ -257,7 +257,7 @@
   color: var(--sub);
 }
 
-.time-field input {
+.time-field select {
   width: 100%;
   min-width: 0;
   padding: 0;
@@ -268,6 +268,14 @@
   font-size: 16px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  appearance: none;
+  cursor: pointer;
+}
+
+.time-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--hint);
 }
 
 .time-sep {
@@ -316,4 +324,64 @@
 .biz-text strong {
   font-size: 15px;
   color: var(--ink);
+}
+
+/* 먹고 싶은 음식: type a food, add it as a chip; tap a chip to remove it. */
+.food-add {
+  display: flex;
+  gap: 8px;
+}
+
+.food-input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+
+.food-input::placeholder {
+  color: var(--hint);
+}
+
+.food-add-btn {
+  flex: none;
+  height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--forest);
+  color: var(--white);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.food-add-btn:disabled {
+  background: var(--line);
+  color: var(--hint);
+  cursor: default;
+}
+
+.food-chips {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.food-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--forest);
+  background: var(--forest);
+  color: var(--white);
+  font-weight: 600;
+  cursor: pointer;
 }

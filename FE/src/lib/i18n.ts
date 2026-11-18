@@ -76,7 +76,11 @@ const ko = {
   startTime: '출발',
   endTime: '마무리',
   timeError: '마무리 시간은 출발 시간보다 늦어야 해요.',
+  timeZoneNote: '날짜와 시간은 필리핀 시간(PHT, UTC+8) 기준이에요.',
   foodsLabel: '먹고 싶은 음식',
+  foodPlaceholder: '예: sisig, 할로할로',
+  add: '추가',
+  removeFood: (food: string) => `${food} 빼기`,
   mustVisitLabel: '꼭 가보고 싶은 곳',
   searchSoonTitle: '관광지 검색은 준비 중이에요',
   searchAttractions: '관광지 검색',
@@ -162,6 +166,11 @@ const ko = {
   tomorrow: '내일',
   weekdays: ['일', '월', '화', '수', '목', '금', '토'],
   date: (m: number, d: number, weekday: string) => `${m}월 ${d}일 (${weekday})`,
+  /** "10:00" → "오전 10:00", "16:30" → "오후 4:30". */
+  clock: (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number)
+    return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`
+  },
   minutes: (m: number) => `${m}분`,
   hoursMinutes: (h: number, m: number) => (m ? `${h}시간 ${m}분` : `${h}시간`),
   category: { restaurant: '식당', market: '시장', shop: '가게', attraction: '관광지' },
@@ -184,7 +193,11 @@ const en: Messages = {
   startTime: 'Start',
   endTime: 'End',
   timeError: 'The end time must be later than the start time.',
+  timeZoneNote: 'Dates and times are in Philippine time (PHT, UTC+8).',
   foodsLabel: 'Food you want to try',
+  foodPlaceholder: 'e.g. sisig, halo-halo',
+  add: 'Add',
+  removeFood: (food: string) => `Remove ${food}`,
   mustVisitLabel: 'Places you must see',
   searchSoonTitle: 'Attraction search is coming soon',
   searchAttractions: 'Search attractions',
@@ -265,6 +278,10 @@ const en: Messages = {
   weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   date: (m: number, d: number, weekday: string) =>
     `${weekday}, ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]} ${d}`,
+  clock: (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number)
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+  },
   minutes: (m: number) => `${m} min`,
   hoursMinutes: (h: number, m: number) => (m ? `${h} h ${m} min` : `${h} h`),
   category: { restaurant: 'Restaurant', market: 'Market', shop: 'Shop', attraction: 'Attraction' },

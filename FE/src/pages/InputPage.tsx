@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LatLng, RecommendationRequest } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
-import { BUDGET_STEPS, FALLBACK_START, FOODS, REGION } from '../config.ts'
+import { BUDGET_STEPS, FALLBACK_START, MAX_FOOD_LENGTH, MAX_FOODS, REGION } from '../config.ts'
 import { dayLabel, today, tomorrow } from '../lib/date.ts'
 import { peso, won } from '../lib/format.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
@@ -15,6 +15,18 @@ type StartState = 'idle' | 'locating' | 'here' | 'denied'
 // Shown until the traveler picks times; same as the backend default (docs/API.md).
 const DEFAULT_START = '10:00'
 const DEFAULT_END = '16:00'
+
+// Every 30 minutes from 06:00 to 23:30. A select instead of <input type="time">, whose
+// AM/PM text follows the phone's language and ignores the KO/EN switch.
+const TIME_OPTIONS = Array.from({ length: 36 }, (_, i) => {
+  const minutes = 6 * 60 + i * 30
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${minutes % 60 ? '30' : '00'}`
+})
+
+/** The grid, plus `value` if it came from elsewhere (an earlier request) and is off the grid. */
+function timeOptions(value: string): string[] {
+  return TIME_OPTIONS.includes(value) ? TIME_OPTIONS : [...TIME_OPTIONS, value].sort()
+}
 
 // 1. 조건 입력. Coming back from an error or the result screen refills the previous request.
 export default function InputPage() {
@@ -33,6 +45,7 @@ export default function InputPage() {
   const [freeText, setFreeText] = useState(prev?.free_text ?? '')
   const [budget, setBudget] = useState(prev?.budget.amount ?? 1000)
   const [foods, setFoods] = useState<string[]>(prev?.foods ?? [])
+  const [foodDraft, setFoodDraft] = useState('')
   const [start, setStart] = useState<LatLng>(prev?.start_location ?? FALLBACK_START)
   const [startState, setStartState] = useState<StartState>('idle')
   // A date left over from an earlier visit can be in the past; fall back to today.
@@ -47,8 +60,26 @@ export default function InputPage() {
   const timeError = endTime <= startTime
   const canSubmit = budget > 0 && !timeError
 
-  function toggleFood(food: string) {
-    setFoods((f) => (f.includes(food) ? f.filter((x) => x !== food) : [...f, food]))
+  /** Adds what is typed, split on commas ("sisig, halo-halo"). Duplicates and blanks are dropped. */
+  function withDraft(list: string[], draft: string): string[] {
+    const next = [...list]
+    for (const raw of draft.split(',')) {
+      const food = raw.trim().slice(0, MAX_FOOD_LENGTH)
+      if (food && next.length < MAX_FOODS && !next.some((f) => f.toLowerCase() === food.toLowerCase())) next.push(food)
+    }
+    return next
+  }
+
+  function addFood() {
+    setFoods((f) => withDraft(f, foodDraft))
+    setFoodDraft('')
+  }
+
+  function onFoodKey(e: KeyboardEvent<HTMLInputElement>) {
+    // Enter adds the food instead of submitting the form; wait while a Korean syllable is still composing.
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+    e.preventDefault()
+    addFood()
   }
 
   function locate() {
@@ -76,7 +107,7 @@ export default function InputPage() {
     const req: RecommendationRequest = {
       region,
       budget: { amount: budget, currency: 'PHP' },
-      foods,
+      foods: withDraft(foods, foodDraft), // a food typed but not added yet still counts
       attractions: prev?.attractions ?? [],
       start_location: start,
       travel_date: date,
@@ -190,48 +221,79 @@ export default function InputPage() {
           <div className="time-row">
             <label className="time-field">
               <span>{t.startTime}</span>
-              <input
-                type="time"
+              <select
                 value={startTime}
                 onChange={(e) => {
-                  setStartTime(e.target.value || DEFAULT_START)
+                  setStartTime(e.target.value)
                   setTimesSet(true)
                 }}
-              />
+              >
+                {timeOptions(startTime).map((v) => (
+                  <option key={v} value={v}>
+                    {t.clock(v)}
+                  </option>
+                ))}
+              </select>
             </label>
             <span className="time-sep" aria-hidden="true">
               ~
             </span>
             <label className="time-field">
               <span>{t.endTime}</span>
-              <input
-                type="time"
+              <select
                 value={endTime}
                 onChange={(e) => {
-                  setEndTime(e.target.value || DEFAULT_END)
+                  setEndTime(e.target.value)
                   setTimesSet(true)
                 }}
-              />
+              >
+                {timeOptions(endTime).map((v) => (
+                  <option key={v} value={v}>
+                    {t.clock(v)}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
+          <p className="time-note">{t.timeZoneNote}</p>
           {timeError && <p className="field-error">{t.timeError}</p>}
         </section>
 
         <section className="field">
           <h2 className="label">{t.foodsLabel}</h2>
-          <div className="chips">
-            {FOODS.map((food) => (
-              <button
-                key={food}
-                type="button"
-                className="chip"
-                aria-pressed={foods.includes(food)}
-                onClick={() => toggleFood(food)}
-              >
-                {food}
-              </button>
-            ))}
+          <div className="food-add">
+            <input
+              className="food-input"
+              value={foodDraft}
+              onChange={(e) => setFoodDraft(e.target.value)}
+              onKeyDown={onFoodKey}
+              placeholder={t.foodPlaceholder}
+              aria-label={t.foodsLabel}
+              maxLength={MAX_FOOD_LENGTH * 3}
+              disabled={foods.length >= MAX_FOODS}
+              enterKeyHint="done"
+            />
+            <button type="button" className="food-add-btn" onClick={addFood} disabled={!foodDraft.trim()}>
+              {t.add}
+            </button>
           </div>
+          {foods.length > 0 && (
+            <ul className="chips food-chips">
+              {foods.map((food) => (
+                <li key={food}>
+                  <button
+                    type="button"
+                    className="chip food-chip"
+                    onClick={() => setFoods((f) => f.filter((x) => x !== food))}
+                    aria-label={t.removeFood(food)}
+                  >
+                    {food}
+                    <Icon name="close" size={14} stroke={2.4} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="field">
