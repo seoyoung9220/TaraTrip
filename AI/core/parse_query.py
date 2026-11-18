@@ -324,7 +324,7 @@ def generic_match(place, word):
     return (len(w) >= 3 and w in name) or norm(place["category"]) == w
 
 
-def build_plan_input(query, places, start_location, personal=None):
+def build_plan_input(query, places, start_location, personal=None, end_location=None):
     """
     personal: personalize.personal_bonus() 결과 (없으면 None)
       - 있으면: 임베딩 기반 개인 맞춤 가산점 사용 (2단계)
@@ -387,6 +387,7 @@ def build_plan_input(query, places, start_location, personal=None):
             "start": query["start"],
             "end": query["end"],
             "startLocation": start_location,
+            "endLocation": end_location,  # None이면 plan_route가 출발지로 돌아감
             "places": adjusted,
             "options": options,
         },

@@ -208,7 +208,7 @@ export function mockRouteFor(req: RecommendationRequest): Recommendation {
     prev = s
   }
 
-  const back = mockLeg(prev, req.start_location)
+  const back = mockLeg(prev, req.end_location ?? req.start_location)
   return {
     ...mockRecommendation,
     total_cost: stops.reduce((sum, s) => sum + s.est_cost + s.transport.cost, 0) + back.cost,

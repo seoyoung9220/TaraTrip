@@ -325,6 +325,19 @@ def test_no_results():
     raise AssertionError("NoResultsError가 안 남")
 
 
+def test_end_location():
+    """도착지를 따로 주면 마지막 구간은 도착지로 가고, 안 주면 출발지로 돌아옴"""
+    round_trip = recommend(REQ, ROWS, travel_date=TUE, lang="ko")
+    far_end = {"lat": 14.5547, "lng": 121.0244}  # Makati: 출발지(Intramuros)에서 약 7km
+    one_way = recommend({**REQ, "end_location": far_end}, ROWS, travel_date=TUE, lang="ko")
+    same = recommend({**REQ, "end_location": REQ["start_location"]}, ROWS, travel_date=TUE, lang="ko")
+    assert same["return_transport"] == round_trip["return_transport"]
+    assert one_way["return_transport"]["mode"] != "walk"  # 7km는 걸어가지 않음
+    assert one_way["return_transport"]["cost"] > 0
+    stops_cost = sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in one_way["stops"])
+    assert one_way["total_cost"] == stops_cost + one_way["return_transport"]["cost"]
+
+
 if __name__ == "__main__":
     tests = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for t in tests:

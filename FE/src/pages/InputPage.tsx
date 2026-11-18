@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LatLng, RecommendationRequest } from '../api/types.ts'
+import AddressSearch from '../components/AddressSearch.tsx'
 import Icon from '../components/Icon.tsx'
 import LocationPicker from '../components/LocationPicker.tsx'
 import { BUDGET_STEPS, FALLBACK_START, MAX_FOOD_LENGTH, MAX_FOODS, REGION } from '../config.ts'
@@ -12,7 +13,7 @@ import { useRegions } from '../lib/useRegions.ts'
 import './InputPage.css'
 
 // Where the start pin came from, for the line under the map.
-type StartState = 'default' | 'locating' | 'here' | 'picked' | 'denied' | 'abroad'
+type StartState = 'default' | 'locating' | 'here' | 'picked' | 'searched' | 'denied' | 'abroad'
 
 /** Gives up on a location request that never answers (a permission prompt left open ignores `timeout`). */
 const LOCATE_LIMIT_MS = 12_000
@@ -58,6 +59,10 @@ export default function InputPage() {
   const [foodDraft, setFoodDraft] = useState('')
   const [start, setStart] = useState<LatLng>(prev?.start_location ?? FALLBACK_START)
   const [startState, setStartState] = useState<StartState>(prev?.start_location ? 'picked' : 'default')
+  const [startName, setStartName] = useState('') // the address search result picked, for the status line
+  // Where the day ends. null = back to the start (no end_location in the request).
+  const [end, setEnd] = useState<LatLng | null>(prev?.end_location ?? null)
+  const [endName, setEndName] = useState('')
   // Bumped on every locate/cancel so a late answer from an abandoned request is ignored.
   const locateRun = useRef(0)
   // A date left over from an earlier visit can be in the past; fall back to today.
@@ -137,6 +142,17 @@ export default function InputPage() {
     setStartState('picked')
   }
 
+  function searchedStart(value: LatLng, name: string) {
+    pickStart(value)
+    setStartName(name)
+    setStartState('searched')
+  }
+
+  function pickEnd(value: LatLng, name = '') {
+    setEnd(value)
+    setEndName(name)
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
@@ -146,6 +162,7 @@ export default function InputPage() {
       foods: withDraft(foods, foodDraft), // a food typed but not added yet still counts
       attractions: prev?.attractions ?? [],
       start_location: start,
+      ...(end ? { end_location: end } : {}),
       travel_date: date,
       ...(timesSet ? { start_time: startTime, end_time: endTime } : {}),
       ...(freeText.trim() ? { free_text: freeText.trim() } : {}),
@@ -355,9 +372,36 @@ export default function InputPage() {
               </button>
             )}
           </div>
+          <AddressSearch onPick={searchedStart} />
           <LocationPicker value={start} onChange={pickStart} />
           <p className={`start-note${startState === 'denied' || startState === 'abroad' ? ' warn' : ''}`} role="status">
-            {t.startStatus[startState]}
+            {startState === 'searched' ? t.startFrom(startName) : t.startStatus[startState]}
+          </p>
+        </section>
+
+        <section className="field">
+          <h2 className="label">{t.endLabel}</h2>
+          <div className="chips">
+            <button type="button" className="chip" aria-pressed={end === null} onClick={() => setEnd(null)}>
+              {t.sameAsStart}
+            </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={end !== null}
+              onClick={() => end === null && pickEnd(start)}
+            >
+              {t.elsewhere}
+            </button>
+          </div>
+          {end !== null && (
+            <>
+              <AddressSearch onPick={pickEnd} />
+              <LocationPicker value={end} onChange={(v) => pickEnd(v)} />
+            </>
+          )}
+          <p className="start-note" role="status">
+            {end === null ? t.endSame : endName ? t.endAt(endName) : t.endPicked}
           </p>
         </section>
 
