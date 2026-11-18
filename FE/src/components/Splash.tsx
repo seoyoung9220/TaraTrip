@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import CloudLayer from './anim/CloudLayer.tsx'
 import { createMover, moveTo, prefersReducedMotion, runMovers } from './anim/pathMover.ts'
 import { FLIGHT_CLOUDS, FLIGHT_FRACS, FLIGHT_PATH, PLANE_SHAPE, SKY_CLOUDS } from './anim/scenery.ts'
+import { useT } from '../lib/i18n.ts'
 import './anim/anim.css'
 
 const FLY_AT = 300
@@ -15,6 +16,7 @@ interface Props {
 
 // 0-1. 시작 화면: the logo fades in while a plane flies between three pins. Tap to skip.
 export default function Splash({ onDone }: Props) {
+  const t = useT()
   const pathRef = useRef<SVGPathElement>(null)
   const trailRef = useRef<SVGPathElement>(null)
   const planeRef = useRef<SVGGElement>(null)
@@ -63,7 +65,7 @@ export default function Splash({ onDone }: Props) {
       type="button"
       className={`splash${ready ? ' ready' : ''}${leaving ? ' leaving' : ''}`}
       onClick={() => doneRef.current()}
-      aria-label="TaraTrip 시작하기"
+      aria-label={t.start}
     >
       <svg className="splash-sky" viewBox="0 0 390 320" aria-hidden="true">
         <CloudLayer clouds={SKY_CLOUDS} from={430} to={-150} />
@@ -99,7 +101,7 @@ export default function Splash({ onDone }: Props) {
           <path d={PLANE_SHAPE} fill="var(--on-forest)" />
         </g>
       </svg>
-      <span className="splash-tagline fade">예산 안에서 만나는 현지의 하루</span>
+      <span className="splash-tagline fade">{t.tagline}</span>
     </button>
   )
 }

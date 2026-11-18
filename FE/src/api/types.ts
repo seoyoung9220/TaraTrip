@@ -17,6 +17,8 @@ export interface RecommendationRequest {
   start_time?: string
   end_time?: string
   free_text?: string
+  /** Language of summary and reasons. Backend default is "ko". */
+  lang?: 'ko' | 'en'
 }
 
 export type PlaceCategory = 'restaurant' | 'market' | 'shop' | 'attraction'

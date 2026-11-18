@@ -6,7 +6,8 @@ import ErrorView from '../components/ErrorView.tsx'
 import Icon from '../components/Icon.tsx'
 import LoadingScreen from '../components/LoadingScreen.tsx'
 import RouteMap from '../components/RouteMap.tsx'
-import { CATEGORY_KO, duration, peso, transportLabel, won } from '../lib/format.ts'
+import { duration, peso, transportLabel, won } from '../lib/format.ts'
+import { useT } from '../lib/i18n.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
 import './ResultPage.css'
 
@@ -93,6 +94,7 @@ interface ViewProps {
 
 function RouteView({ route, req, onBack }: ViewProps) {
   const navigate = useNavigate()
+  const t = useT()
   const rate = useExchangeRate()
   const left = req.budget.amount - route.total_cost
   const totals = route.stops.reduce(
@@ -113,7 +115,7 @@ function RouteView({ route, req, onBack }: ViewProps) {
     <main className="result">
       <div className="result-map">
         <RouteMap stops={route.stops} onSelect={openPlace} />
-        <button type="button" className="icon-btn floating map-back" onClick={onBack} aria-label="조건 입력으로 돌아가기">
+        <button type="button" className="icon-btn floating map-back" onClick={onBack} aria-label={t.backToInput}>
           <Icon name="back" />
         </button>
       </div>
@@ -124,7 +126,7 @@ function RouteView({ route, req, onBack }: ViewProps) {
         <div className="ticket">
           <div className="ticket-top">
             <p className="ticket-sub">
-              {req.region} 하루 코스 · {route.stops.length}곳
+              {t.ticketSub(req.region, route.stops.length)}
             </p>
             <p className="ticket-price">
               <strong>{peso(route.total_cost)}</strong>
@@ -134,50 +136,50 @@ function RouteView({ route, req, onBack }: ViewProps) {
           <div className="perforation" aria-hidden="true" />
           <dl className="ticket-stats">
             <div>
-              <dt>예산</dt>
+              <dt>{t.budget}</dt>
               <dd>{peso(req.budget.amount)}</dd>
             </div>
             <div>
-              <dt>남는 돈</dt>
+              <dt>{t.left}</dt>
               <dd className="accent">{peso(Math.max(0, left))}</dd>
             </div>
             <div>
-              <dt>소요 시간</dt>
-              <dd>{duration(route.total_minutes)}</dd>
+              <dt>{t.totalTime}</dt>
+              <dd>{duration(route.total_minutes, t)}</dd>
             </div>
           </dl>
         </div>
 
         <dl className="cost-tiles">
           <div>
-            <dt>식비</dt>
+            <dt>{t.food}</dt>
             <dd>{peso(totals.food)}</dd>
           </div>
           <div>
-            <dt>입장료</dt>
+            <dt>{t.entry}</dt>
             <dd>{peso(totals.entry)}</dd>
           </div>
           <div>
-            <dt>교통비</dt>
+            <dt>{t.transport}</dt>
             <dd>{peso(totals.transport)}</dd>
           </div>
         </dl>
 
         <div className="why">
-          <p className="why-label">왜 이 코스냐면</p>
+          <p className="why-label">{t.why}</p>
           <p className="why-text">{route.summary}</p>
         </div>
 
-        <h2 className="stops-heading">코스 순서</h2>
+        <h2 className="stops-heading">{t.stopsHeading}</h2>
         <ol className="stops">
           {route.stops.map((s, i) => (
             <li key={s.place_id}>
-              <Leg transport={s.transport} prefix={i === 0 ? '출발지에서' : undefined} />
+              <Leg transport={s.transport} prefix={i === 0 ? t.fromStart : undefined} />
               <button type="button" className="stop-row" onClick={() => openPlace(s)}>
                 <span className="order">{s.order}</span>
                 <span className="stop-info">
                   <span className="stop-meta">
-                    {s.arrival_time} · {CATEGORY_KO[s.category]} · {duration(s.stay_minutes)}
+                    {s.arrival_time} · {t.category[s.category]} · {duration(s.stay_minutes, t)}
                   </span>
                   <span className="stop-name-row">
                     <span className="stop-name">{s.name}</span>
@@ -189,10 +191,10 @@ function RouteView({ route, req, onBack }: ViewProps) {
             </li>
           ))}
         </ol>
-        <Leg transport={route.return_transport} prefix="출발지로" className="return-leg" />
+        <Leg transport={route.return_transport} prefix={t.toStart} className="return-leg" />
 
         <button type="button" className="btn btn-soft btn-block again" onClick={onBack}>
-          조건 바꿔서 다시 추천받기
+          {t.again}
         </button>
       </section>
     </main>
@@ -208,8 +210,9 @@ interface LegProps {
 
 /** One leg between stops. Hidden when there is no travel (e.g. starting right at the first stop). */
 function Leg({ transport, prefix, className }: LegProps) {
+  const t = useT()
   if (transport.minutes <= 0) return null
-  const label = transportLabel(transport)
+  const label = transportLabel(transport, t)
   return (
     <div className={className ? `transport ${className}` : 'transport'}>
       <span className="transport-line" aria-hidden="true" />

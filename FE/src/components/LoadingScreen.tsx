@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createMover, moveTo, runMovers, type Mover } from './anim/pathMover.ts'
 import { BUSHES, ROAD_FRACS, ROAD_PATH } from './anim/scenery.ts'
+import { useT } from '../lib/i18n.ts'
 import Icon from './Icon.tsx'
 import './anim/anim.css'
 
-const STEPS = ['요청 읽기', '예산 안의 가게 찾기', '동선 잇기']
+const STEP_COUNT = 3
 const STEP_MS = 1600
 const DRIVE_MS = 1400
 
@@ -18,8 +19,9 @@ interface Props {
 // 2. 추천 중: a jeepney drives stop to stop, one stop per step.
 // Steps advance on a timer and wait at the last step until `done`.
 export default function LoadingScreen({ region, done, onClose }: Props) {
+  const t = useT()
   const [timedStep, setTimedStep] = useState(0)
-  const step = done ? STEPS.length : timedStep
+  const step = done ? STEP_COUNT : timedStep
 
   const pathRef = useRef<SVGPathElement>(null)
   const jeepRef = useRef<SVGGElement>(null)
@@ -27,7 +29,7 @@ export default function LoadingScreen({ region, done, onClose }: Props) {
   const moverRef = useRef<Mover | null>(null)
 
   useEffect(() => {
-    if (done || timedStep >= STEPS.length - 1) return
+    if (done || timedStep >= STEP_COUNT - 1) return
     const t = setTimeout(() => setTimedStep((s) => s + 1), STEP_MS)
     return () => clearTimeout(t)
   }, [timedStep, done])
@@ -51,7 +53,7 @@ export default function LoadingScreen({ region, done, onClose }: Props) {
   return (
     <div className="loading" role="status" aria-live="polite">
       <div className="header">
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="추천 그만두기">
+        <button type="button" className="icon-btn" onClick={onClose} aria-label={t.cancel}>
           <Icon name="close" />
         </button>
       </div>
@@ -100,16 +102,16 @@ export default function LoadingScreen({ region, done, onClose }: Props) {
           </g>
         </svg>
 
-        <h1 className="title">{`${region}의 하루를\n엮고 있어요`}</h1>
+        <h1 className="title">{t.loadingTitle(region)}</h1>
 
         <ol className="loading-steps">
-          {STEPS.map((label, i) => {
+          {t.loadingSteps.map((label, i) => {
             const state = i < step ? 'done' : i === step ? 'active' : ''
             return (
-              <li key={label} className={state}>
+              <li key={i} className={state}>
                 <span className="n">{String(i + 1).padStart(2, '0')}</span>
                 <span className="l">{label}</span>
-                <span className="st">{i < step ? '완료' : i === step ? '진행 중' : '대기'}</span>
+                <span className="st">{i < step ? t.stepState.done : i === step ? t.stepState.active : t.stepState.waiting}</span>
               </li>
             )
           })}
