@@ -34,6 +34,15 @@ const PATHS = {
       <circle cx="12" cy="12.5" r="2.5" />
     </>
   ),
+  // Not in the wireframe set: the traveler ↔ business switch.
+  store: (
+    <>
+      <path d="M4 10v10h16V10" />
+      <path d="M3 10l2-6h14l2 6c0 1.7-1.3 3-3 3s-3-1.3-3-3c0 1.7-1.3 3-3 3s-3-1.3-3-3c0 1.7-1.3 3-3 3s-3-1.3-3-3z" />
+      <path d="M10 20v-5h4v5" />
+    </>
+  ),
+  chevronRight: <path d="M9 6l6 6-6 6" />,
   // Not in the wireframe set: added for the signature-menu row on the place screen.
   dish: (
     <>

@@ -86,6 +86,8 @@ const ko = {
   startDenied: '위치를 쓸 수 없어서 기본 출발점으로 추천해요. 지도에서 고르는 기능은 곧 열려요.',
   submit: '코스 추천받기',
   langSwitch: 'English로 보기',
+  bizTitle: '가게를 운영하시나요?',
+  bizBody: '무료로 등록하면 여행자 코스에 소개돼요',
 
   // Loading
   loadingSteps: ['요청 읽기', '예산 안의 가게 찾기', '동선 잇기'],
@@ -192,6 +194,8 @@ const en: Messages = {
   startDenied: "We couldn't get your location, so the route starts from a default point. Picking on the map is coming soon.",
   submit: 'Plan my day',
   langSwitch: '한국어로 보기',
+  bizTitle: 'Own a local business?',
+  bizBody: 'List it free and get suggested in travelers’ routes',
 
   loadingSteps: ['Reading your request', 'Finding places in budget', 'Connecting the stops'],
   loadingTitle: (region: string) => `Putting together\nyour day in ${region}`,
