@@ -33,7 +33,8 @@ Recommends a one-day route within the budget.
   "travel_date": "2026-11-20",
   "start_time": "10:00",
   "end_time": "16:00",
-  "free_text": "I want to try local food for about 1000 PHP today"
+  "free_text": "I want to try local food for about 1000 PHP today",
+  "lang": "en"
 }
 ```
 
@@ -49,6 +50,7 @@ Recommends a one-day route within the budget.
 | `start_time` | string | no | Earliest time to leave `start_location`, local `HH:MM`. Default: `"10:00"` |
 | `end_time` | string | no | Time the day should end, local `HH:MM`, later than `start_time`. Default: `"16:00"` |
 | `free_text` | string | no | Natural-language request. The AI module parses it and merges it with the fields above. Form fields win when both are given; `free_text` only fills fields left out (e.g. "from 1pm" sets the times only if `start_time`/`end_time` are absent) |
+| `lang` | string | no | Language of `summary`, `stops[].reason` and the `BUDGET_TOO_LOW` / `NO_RESULTS` messages: `"ko"` or `"en"`. Default: `"ko"`. Place data (names, descriptions) is not translated. Any other value → 400 `INVALID_REQUEST` |
 
 ### Response `200 OK`
 
@@ -99,7 +101,7 @@ Recommends a one-day route within the budget.
 | `total_cost` | number | All spending for the day: every stop's `est_cost` + every `stops[].transport.cost` (including start → first stop) + `return_transport.cost`. Must not exceed `budget.amount` |
 | `total_minutes` | number | Total time from the first arrival to leaving the last stop, travel included |
 | `currency` | string | `"PHP"` |
-| `summary` | string | Explanation of the whole route |
+| `summary` | string | Explanation of the whole route, in the request's `lang` |
 | `stops[].order` | number | Visit order, starting at 1 |
 | `stops[].place_id` | string | ID usable with `GET /api/places/{place_id}` |
 | `stops[].category` | string | `restaurant` \| `market` \| `shop` \| `attraction` |
@@ -111,7 +113,7 @@ Recommends a one-day route within the budget.
 | `stops[].transport.minutes` | number | Travel time |
 | `stops[].transport.cost` | number | Fare; `0` for walking |
 | `stops[].cost_breakdown` | object | `food`, `entry`, `transport` (`transport` equals `transport.cost`) |
-| `stops[].reason` | string | Explanation for this stop |
+| `stops[].reason` | string | Explanation for this stop, in the request's `lang` |
 | `return_transport` | object | How to get back from the last stop to `start_location`; same fields as `stops[].transport` |
 
 ---
