@@ -70,11 +70,13 @@ def test_recommendation_matches_spec(client_with):
     res = client_with().post("/api/recommendations", json=REQ)
     assert res.status_code == 200, res.text
     body = res.json()
-    assert set(body) == {"route_id", "total_cost", "total_minutes", "currency", "summary", "stops"}
+    assert set(body) == {"route_id", "total_cost", "total_minutes", "currency", "summary", "stops", "return_transport"}
     assert body["currency"] == "PHP"
     assert 0 < body["total_cost"] <= REQ["budget"]["amount"]
     assert body["stops"], "expected at least one stop"
-    assert body["stops"][0]["transport"] is None
+    assert body["stops"][0]["transport"] is not None  # start_location -> first stop
+    fares = sum(s["transport"]["cost"] for s in body["stops"]) + body["return_transport"]["cost"]
+    assert body["total_cost"] == sum(s["est_cost"] for s in body["stops"]) + fares
     assert [s["order"] for s in body["stops"]] == list(range(1, len(body["stops"]) + 1))
     assert {s["place_id"] for s in body["stops"]} <= {r["place_id"] for r in ROWS}
     assert "Fort Santiago" in [s["name"] for s in body["stops"]]  # asked for by name

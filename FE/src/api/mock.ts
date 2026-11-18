@@ -12,7 +12,7 @@ import type {
 
 export const mockRecommendation: Recommendation = {
   route_id: 'mock-route-1',
-  total_cost: 920,
+  total_cost: 934,
   total_minutes: 330,
   currency: 'PHP',
   summary: '[AI 추천 요약: 이 코스가 예산과 취향에 맞는 이유]',
@@ -27,7 +27,7 @@ export const mockRecommendation: Recommendation = {
       arrival_time: '10:00',
       est_cost: 250,
       stay_minutes: 60,
-      transport: null,
+      transport: { mode: 'walk', minutes: 10, cost: 0 },
       cost_breakdown: { food: 250, entry: 0, transport: 0 },
       reason: '[이곳을 추천한 이유]',
     },
@@ -74,6 +74,7 @@ export const mockRecommendation: Recommendation = {
       reason: '[이곳을 추천한 이유]',
     },
   ],
+  return_transport: { mode: 'jeepney', minutes: 20, cost: 14 },
 }
 
 // Extra candidates so longer trips get longer mock routes.
@@ -173,8 +174,8 @@ const toClock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0
  * the result screen can be checked with short and long trips:
  * up to round(5 × hours / 6) stops (max 7), up to 2 food stops (3 if foods were picked,
  * +1 for 8 h or more), never 3 food stops in a row, and nothing past end_time (default 10:00–16:00).
- * Legs follow the AI transport rules (PR #21). Like the AI, the ride from start_location to the
- * first stop moves the first arrival time but is not in the response (`transport: null`).
+ * Legs follow the AI transport rules (PR #21). Like the AI, the first stop's `transport` is the ride
+ * from start_location, `return_transport` is the ride back, and both fares are in total_cost.
  */
 export function mockRouteFor(req: RecommendationRequest): Recommendation {
   const start = toMinutes(req.start_time ?? '10:00')
@@ -192,7 +193,7 @@ export function mockRouteFor(req: RecommendationRequest): Recommendation {
     const lastTwoMeals = stops.length >= 2 && stops.slice(-2).every(isMeal)
     if (isMeal(s) && (meals >= maxMeals || lastTwoMeals)) continue
     const leg = mockLeg(prev, s)
-    const transport = stops.length === 0 ? null : leg
+    const transport = leg
     const arrival = clock + leg.minutes
     // Like the AI module: a stop that would run past end_time is left out (keep at least one).
     if (stops.length > 0 && arrival + s.stay_minutes > end) continue
@@ -201,17 +202,19 @@ export function mockRouteFor(req: RecommendationRequest): Recommendation {
       order: stops.length + 1,
       arrival_time: toClock(arrival),
       transport,
-      cost_breakdown: { ...s.cost_breakdown, transport: transport?.cost ?? 0 },
+      cost_breakdown: { ...s.cost_breakdown, transport: transport.cost },
     })
     clock = arrival + s.stay_minutes
     prev = s
   }
 
+  const back = mockLeg(prev, req.start_location)
   return {
     ...mockRecommendation,
-    total_cost: stops.reduce((sum, s) => sum + s.est_cost + (s.transport?.cost ?? 0), 0),
+    total_cost: stops.reduce((sum, s) => sum + s.est_cost + s.transport.cost, 0) + back.cost,
     total_minutes: clock - toMinutes(stops[0].arrival_time),
     stops,
+    return_transport: back,
   }
 }
 

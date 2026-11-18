@@ -101,7 +101,7 @@ function RouteView({ route, req, onBack }: ViewProps) {
       entry: t.entry + s.cost_breakdown.entry,
       transport: t.transport + s.cost_breakdown.transport,
     }),
-    { food: 0, entry: 0, transport: 0 },
+    { food: 0, entry: 0, transport: route.return_transport.cost },
   )
 
   const openPlace = (stop: Stop) => {
@@ -194,6 +194,10 @@ function RouteView({ route, req, onBack }: ViewProps) {
             </li>
           ))}
         </ol>
+        <div className="transport return-leg">
+          <span className="transport-line" aria-hidden="true" />
+          <span className="transport-pill">출발지로 · {transportLabel(route.return_transport)}</span>
+        </div>
 
         <button type="button" className="btn btn-soft btn-block again" onClick={onBack}>
           조건 바꿔서 다시 추천받기

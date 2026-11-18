@@ -40,10 +40,13 @@ REQ = {"region": "Manila", "budget": {"amount": 1000, "currency": "PHP"},
 
 def check_shape(res, budget):
     """FE/src/api/types.ts의 Recommendation과 같은 모양인지"""
-    assert set(res) - {"_debug"} == {"route_id", "total_cost", "total_minutes", "currency", "summary", "stops"}
+    assert set(res) - {"_debug"} == {"route_id", "total_cost", "total_minutes", "currency", "summary", "stops",
+                                     "return_transport"}
     assert res["currency"] == "PHP" and isinstance(res["summary"], str) and res["summary"]
     assert res["total_cost"] <= budget, "예산 초과"
-    assert res["total_cost"] == sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in res["stops"])
+    rt = res["return_transport"]
+    assert set(rt) == {"mode", "minutes", "cost"} and rt["mode"] in ("walk", "jeepney", "tricycle", "taxi", "other")
+    assert res["total_cost"] == sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in res["stops"]) + rt["cost"]
     for i, s in enumerate(res["stops"]):
         assert set(s) == {"order", "place_id", "name", "category", "lat", "lng", "arrival_time", "est_cost",
                           "stay_minutes", "transport", "cost_breakdown", "reason"}, set(s)
@@ -52,11 +55,8 @@ def check_shape(res, budget):
         assert len(s["arrival_time"]) == 5 and s["arrival_time"][2] == ":"
         assert set(s["cost_breakdown"]) == {"food", "entry", "transport"}
         assert s["est_cost"] == s["cost_breakdown"]["food"] + s["cost_breakdown"]["entry"]
-        if i == 0:
-            assert s["transport"] is None
-        else:
-            assert s["transport"]["mode"] in ("walk", "jeepney", "tricycle", "taxi", "other")
-            assert s["cost_breakdown"]["transport"] == s["transport"]["cost"]
+        assert s["transport"]["mode"] in ("walk", "jeepney", "tricycle", "taxi", "other")  # 첫 장소는 출발지에서
+        assert s["cost_breakdown"]["transport"] == s["transport"]["cost"]
     json.dumps(res)  # JSON으로 바꿀 수 있는지
 
 
@@ -190,9 +190,8 @@ def test_transport_modes():
     res = recommend(req, rows, travel_date=TUE)
     check_shape(res, 2000)
     stops = res["stops"]
-    assert stops[0]["transport"] is None  # 명세: 첫 장소는 null
     walk_cap = round(TRANSPORT["walkMaxKm"] / 4.5 * 60) + 1  # 도보 기준 거리 ≈ 13~14분
-    for s in stops[1:]:
+    for s in stops:  # 첫 장소도 출발지에서 오는 구간이 있음
         t = s["transport"]
         assert t["mode"] in ("walk", "jeepney", "taxi"), t
         assert t["cost"] == s["cost_breakdown"]["transport"]
@@ -200,16 +199,18 @@ def test_transport_modes():
             assert t["cost"] == 0 and t["minutes"] <= walk_cap, t
         else:
             assert t["cost"] > 0, t
-    assert res["total_cost"] == sum(s["est_cost"] + s["transport"]["cost"] for s in stops[1:]) + stops[0]["est_cost"]
+    rt = res["return_transport"]
+    assert rt["mode"] in ("walk", "jeepney", "taxi") and (rt["cost"] > 0) == (rt["mode"] != "walk"), rt
+    assert res["total_cost"] == sum(s["est_cost"] + s["transport"]["cost"] for s in stops) + rt["cost"]
     # 첫 도착 시간: 걸어서 가면 10시 넘어야 하지만 탈것이라 훨씬 빠름
     assert stops[0]["arrival_time"] < "10:00", stops[0]["arrival_time"]
     # 요약문의 걷는 시간은 도보 구간만
     walked = sum(s["transport"]["minutes"] for s in stops[1:] if s["transport"]["mode"] == "walk")
     assert "걷는 시간" in res["summary"] or "걷는 구간" in res["summary"], res["summary"]
-    # 교통비까지 합쳐서 예산 안
+    # 요약문의 쓰는 돈 = 응답 total_cost (왕복 교통비 포함), 예산 안
     import re
     spend = int(re.search(r"중 (\d+)페소", res["summary"]).group(1))
-    assert res["total_cost"] <= spend <= 2000
+    assert res["total_cost"] == spend <= 2000
     # 걷기 싫어 → 도보 구간이 더 짧아짐
     llm = lambda m: '{"budget":null,"start":null,"end":null,"tags":[],"areas":[],"mustVisit":[],"avoid":[],"preferenceText":"","language":"ko","isTripRequest":true,"walking":"minimal"}'
     lazy = recommend({**req, "free_text": "많이 걷는 건 싫어"}, rows, call_llm=llm, travel_date=TUE)

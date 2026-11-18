@@ -63,7 +63,7 @@ class Stop(BaseModel):
     arrival_time: str
     est_cost: int
     stay_minutes: int
-    transport: Transport | None
+    transport: Transport  # from the previous stop (first stop: from start_location)
     cost_breakdown: CostBreakdown
     reason: str
 
@@ -76,6 +76,7 @@ class Recommendation(BaseModel):
     currency: Literal["PHP"] = "PHP"
     summary: str
     stops: list[Stop]
+    return_transport: Transport  # last stop -> start_location
 
 
 # ── GET /api/places/{place_id} ──────────────────────────────
