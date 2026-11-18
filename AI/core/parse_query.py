@@ -88,11 +88,11 @@ User: "오늘 날씨 어때?"
 MODEL = "@cf/meta/llama-3.1-8b-instruct"
 
 
-def call_workers_ai(messages, account_id, api_token, model=MODEL):
+def call_workers_ai(messages, account_id, api_token, model=MODEL, max_tokens=1024):
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
     status, data = post_json(
         url,
-        {"messages": messages, "temperature": 0, "max_tokens": 400},
+        {"messages": messages, "temperature": 0, "max_tokens": max_tokens},  # 추천 이유 7곳 한국어가 잘리지 않게 넉넉히
         {"Authorization": f"Bearer {api_token}"},
     )
     if status >= 400 or not data.get("success"):
@@ -292,6 +292,18 @@ def matches(place_name, wanted):
     return len(b) >= 3 and (b in a or a in b)
 
 
+def must_visit_names(places, wanted_list):
+    """꼭 가고 싶은 곳 이름마다 가장 잘 맞는 장소 하나만 고름
+    ("Fort Santiago" → "Fort Santiago"이지 "QC Fort Santiago Replica"가 아님, "San Agustin Church" vs "...Museum"도 하나만)"""
+    out = []
+    for w in wanted_list:
+        cands = [p["name"] for p in places if matches(p["name"], w)]
+        if cands:
+            b = norm(w)
+            out.append(min(cands, key=lambda n: (norm(n) != b, abs(len(norm(n)) - len(b)))))
+    return out
+
+
 # "churches" 같은 일반명사도 잡기 위한 동의어 (필요하면 계속 추가)
 SYNONYMS = {
     "church": ["church", "cathedral", "basilica", "chapel", "성당", "교회"],
@@ -340,6 +352,7 @@ def build_plan_input(query, places, start_location, personal=None):
     if query["walking"] == "minimal":
         notes.append("걷기 최소화: 한 번에 12분 넘게 걷지 않도록 가까운 곳끼리 묶음")
 
+    must = set(must_visit_names(places, query["mustVisit"]))
     adjusted = []
     for p in places:
         if p in avoided or not_relaxed_fit(p):
@@ -354,7 +367,7 @@ def build_plan_input(query, places, start_location, personal=None):
                 score += SMALL_BIZ_MAX * (fit["fit"] if fit else 0.5)
         elif p["category"] in query["tags"]:
             score += TAG_BONUS
-        if any(matches(p["name"], w) for w in query["mustVisit"]):
+        if p["name"] in must:
             score += MUST_VISIT_BONUS
         if query["areas"] and p["area"] not in query["areas"]:
             score = max(1, score - OTHER_AREA_PENALTY)
@@ -378,4 +391,5 @@ def build_plan_input(query, places, start_location, personal=None):
             "options": options,
         },
         "notes": notes,
+        "mustVisitNames": sorted(must),
     }
