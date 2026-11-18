@@ -1,10 +1,11 @@
-// Placeholders until the UST team settles the first region and the food list (same as the wireframes).
-// Replace these with real values, or load them from the backend once an endpoint exists.
+// Placeholder until the UST team settles the first region (same as the wireframes).
 
 /** Shown when GET /api/regions fails or returns nothing. */
 export const REGION = '[지역]'
 
-export const FOODS = ['[음식 1]', '[음식 2]', '[음식 3]', '[음식 4]', '[음식 5]']
+/** Foods the traveler can add on the input screen; each one is sent to the AI as typed. */
+export const MAX_FOODS = 8
+export const MAX_FOOD_LENGTH = 40
 
 /** Used when location permission is denied or unavailable. Matches the mock route area. */
 export const FALLBACK_START = { lat: 14.5995, lng: 120.9842 }
