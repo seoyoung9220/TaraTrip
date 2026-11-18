@@ -1,7 +1,8 @@
-import { useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LatLng, RecommendationRequest } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
+import LocationPicker from '../components/LocationPicker.tsx'
 import { BUDGET_STEPS, FALLBACK_START, MAX_FOOD_LENGTH, MAX_FOODS, REGION } from '../config.ts'
 import { dayLabel, today, tomorrow } from '../lib/date.ts'
 import { peso, won } from '../lib/format.ts'
@@ -10,7 +11,16 @@ import { setLang, useLang, useT } from '../lib/i18n.ts'
 import { useRegions } from '../lib/useRegions.ts'
 import './InputPage.css'
 
-type StartState = 'idle' | 'locating' | 'here' | 'denied'
+// Where the start pin came from, for the line under the map.
+type StartState = 'default' | 'locating' | 'here' | 'picked' | 'denied' | 'abroad'
+
+/** Gives up on a location request that never answers (a permission prompt left open ignores `timeout`). */
+const LOCATE_LIMIT_MS = 12_000
+
+/** Rough box around the Philippines: a phone elsewhere (a tester in Korea) can't be the start. */
+function inPhilippines({ lat, lng }: LatLng): boolean {
+  return lat >= 4.5 && lat <= 21.5 && lng >= 116 && lng <= 127
+}
 
 // Shown until the traveler picks times; same as the backend default (docs/API.md).
 const DEFAULT_START = '10:00'
@@ -47,7 +57,9 @@ export default function InputPage() {
   const [foods, setFoods] = useState<string[]>(prev?.foods ?? [])
   const [foodDraft, setFoodDraft] = useState('')
   const [start, setStart] = useState<LatLng>(prev?.start_location ?? FALLBACK_START)
-  const [startState, setStartState] = useState<StartState>('idle')
+  const [startState, setStartState] = useState<StartState>(prev?.start_location ? 'picked' : 'default')
+  // Bumped on every locate/cancel so a late answer from an abandoned request is ignored.
+  const locateRun = useRef(0)
   // A date left over from an earlier visit can be in the past; fall back to today.
   const [date, setDate] = useState(() => {
     const t = today()
@@ -82,23 +94,47 @@ export default function InputPage() {
     addFood()
   }
 
+  // Current location: cancellable, gives up after LOCATE_LIMIT_MS, and keeps the pin where
+  // it was on failure instead of jumping to the default.
   function locate() {
     if (!('geolocation' in navigator)) {
       setStartState('denied')
       return
     }
+    const run = ++locateRun.current
+    const settle = (fn: () => void) => {
+      if (locateRun.current !== run) return
+      locateRun.current++
+      clearTimeout(timer)
+      fn()
+    }
+    const timer = setTimeout(() => settle(() => setStartState('denied')), LOCATE_LIMIT_MS)
     setStartState('locating')
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setStart({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setStartState('here')
-      },
-      () => {
-        setStart(FALLBACK_START)
-        setStartState('denied')
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+      (pos) =>
+        settle(() => {
+          const here = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+          if (!inPhilippines(here)) {
+            setStartState('abroad')
+            return
+          }
+          setStart(here)
+          setStartState('here')
+        }),
+      () => settle(() => setStartState('denied')),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     )
+  }
+
+  function cancelLocate() {
+    locateRun.current++
+    setStartState(start === FALLBACK_START ? 'default' : 'picked')
+  }
+
+  function pickStart(value: LatLng) {
+    locateRun.current++ // a tap on the map wins over a location request still running
+    setStart(value)
+    setStartState('picked')
   }
 
   function submit(e: FormEvent) {
@@ -119,7 +155,6 @@ export default function InputPage() {
     navigate({ pathname: '/route', search: location.search }, { state: req })
   }
 
-  const startLabel = t.locate[startState]
 
   return (
     <form className="screen input-page" onSubmit={submit}>
@@ -303,21 +338,27 @@ export default function InputPage() {
             {t.searchAttractions}
             <span className="soon">{t.soon}</span>
           </button>
-          <div className="start-row">
-            <span>{t.startLabel}</span>
-            <button
-              type="button"
-              className="locate"
-              onClick={locate}
-              disabled={startState === 'locating'}
-            >
-              <Icon name="locate" size={16} stroke={2.4} />
-              {startLabel}
-            </button>
+        </section>
+
+        <section className="field">
+          <div className="start-head">
+            <h2 className="label">{t.startLabel}</h2>
+            {startState === 'locating' ? (
+              <button type="button" className="locate" onClick={cancelLocate}>
+                <span className="spinner" aria-hidden="true" />
+                {t.locating} · {t.cancelLocate}
+              </button>
+            ) : (
+              <button type="button" className="locate" onClick={locate}>
+                <Icon name="locate" size={16} stroke={2.4} />
+                {t.useMyLocation}
+              </button>
+            )}
           </div>
-          {startState === 'denied' && (
-            <p className="start-note">{t.startDenied}</p>
-          )}
+          <LocationPicker value={start} onChange={pickStart} />
+          <p className={`start-note${startState === 'denied' || startState === 'abroad' ? ' warn' : ''}`} role="status">
+            {t.startStatus[startState]}
+          </p>
         </section>
 
         {/* The one door to the business side (/merchant); the business side links back. */}

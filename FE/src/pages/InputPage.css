@@ -177,13 +177,10 @@
   font-weight: 600;
 }
 
-.start-row {
+.start-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 2px;
-  font-size: 15px;
-  font-weight: 500;
 }
 
 .locate {
@@ -194,8 +191,31 @@
   border: 0;
   background: none;
   color: var(--forest);
-  font-size: 15px;
+  font: inherit;
+  font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--forest);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }
 
 .start-note {
@@ -203,6 +223,10 @@
   font-size: 13px;
   line-height: 1.5;
   color: var(--sub);
+}
+
+.start-note.warn {
+  color: var(--mango-deep);
 }
 
 /* 언제 가요? — 오늘 / 내일 / 다른 날 (native date picker under the chip) */
