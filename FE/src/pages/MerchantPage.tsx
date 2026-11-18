@@ -42,6 +42,9 @@ export default function MerchantPage() {
         <span className="logo merchant-logo">
           Tara<b>Trip</b> for business
         </span>
+        <Link to="/" className="mode-switch">
+          Plan a trip
+        </Link>
       </div>
 
       <div className="merchant-main">

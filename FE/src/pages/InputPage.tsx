@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LatLng, RecommendationRequest } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
 import { BUDGET_STEPS, FALLBACK_START, FOODS, REGION } from '../config.ts'
@@ -257,6 +257,18 @@ export default function InputPage() {
             <p className="start-note">{t.startDenied}</p>
           )}
         </section>
+
+        {/* The one door to the business side (/merchant); the business side links back. */}
+        <Link to="/merchant" className="biz-entry">
+          <span className="biz-icon">
+            <Icon name="store" size={22} />
+          </span>
+          <span className="biz-text">
+            <strong>{t.bizTitle}</strong>
+            <span>{t.bizBody}</span>
+          </span>
+          <Icon name="chevronRight" size={18} />
+        </Link>
       </main>
 
       <div className="footer">
