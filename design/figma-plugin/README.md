@@ -1,12 +1,13 @@
 # TaraTrip Wireframe (Figma plugin)
 
-Draws the traveler-flow wireframes (15 screens, 46 frames with the animation in-between frames) as auto-layout frames with prototype links.
+Draws the traveler-flow wireframes (15 screens) and the small-business screens (4), 50 frames in all with the animation in-between frames, as auto-layout frames with prototype links.
 
 Each run creates a **new page** (`TaraTrip 와이어프레임 <date time>`) and draws only there. Existing pages and frames, including teammates' edits, are never changed.
 
 - App start: 0-1 시작 화면 · 0-2/0-3 첫 방문 안내 · 0-4a/0-4b 위치 권한 (허용 전 / 거절됨)
 - Main flow: 1 조건 입력 (홈) · 2 추천 중 · 3 추천 코스 · 4 장소 상세 · 5a–5c 오류 (예산 부족 / 결과 없음 / 시간 초과)
 - Input helpers: 1-1 지역 선택 · 1-2 관광지 검색 · 1-3 출발 위치
+- Small business (row 4, English like the app: `FE/src/pages/MerchantPage.tsx`, `MerchantFormPage.tsx`): M1 소상공인 홈 · M2 가게 등록 · M3 등록 완료 (수정 키) · M4 가게 수정 (저장됨). The form frames are as tall as the whole scrolling page. Prototype: M1 → M2 → M3 → 4 장소 상세, M1 → M4. The "소상공인" flow starting point opens M1.
 
 Animations play in **Present** mode only:
 
