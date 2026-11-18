@@ -32,17 +32,17 @@ NUMBERS = re.compile(r"[₱$]|페소|peso|php|\d+\s*(분|시간|시|km|원|min|h
 LANG_RULE = {
     "ko": """Korean only, in friendly polite 해요체 (every sentence ends with ~요). Use Hangul; English only for proper nouns.
 For food or item names use the common Korean word, or keep the original English word if unsure (never invent odd transliterations).
-Good examples:
-  intro: "스페인 시대 성당과 비논도 길거리 음식을 함께 즐기는 하루예요."
-  reason: "역사를 좋아하신다면 바로크 양식 성당 내부를 꼭 둘러보세요."
-  reason: "가족이 운영하는 작은 가게라 갓 만든 시오파오를 맛볼 수 있어요."
-  reason: "오래된 건물 안 조용한 카페에서 필리핀 커피로 잠깐 쉬어 가요.
+The examples below are about unrelated places. Copy only their tone and length, never their content:
+  intro: "바닷가 산책과 동네 빵집을 천천히 즐기는 하루예요."
+  reason: "도자기를 좋아하신다면 장인이 물레 돌리는 모습을 꼭 구경해 보세요."
+  reason: "삼대째 이어 온 가게라 손으로 빚은 만두 맛이 남달라요."
+  reason: "창가 자리에 앉아 바다를 보며 쉬어 가기 좋아요."
 """,
     "en": """English, warm and concise.
-Good examples:
-  intro: "A heritage-and-street-food day around old Manila."
-  reason: "If you love history, step inside this baroque church."
-  reason: "A family-run stall where the siopao comes fresh from the steamer.
+The examples below are about unrelated places. Copy only their tone and length, never their content:
+  intro: "A slow day of seaside walks and neighborhood bakeries."
+  reason: "If you love ceramics, watch the potters at their wheels."
+  reason: "Run by the same family for three generations, with hand-folded dumplings."
 """,
 }
 
@@ -60,7 +60,7 @@ Rules:
   Use the stop's facts (description, signature item, tags).
 - If "small_business" is true, you may warmly mention it is locally or family owned, but not for every stop.
 - Do NOT mention prices, money, times, durations, distances or transport. Those are shown elsewhere.
-- Do NOT invent facts that are not in the data.
+- Do NOT invent facts that are not in the data (no architectural style, era or history unless the description says so).
 - Vary how sentences start."""
 
 
