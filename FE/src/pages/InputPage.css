@@ -8,6 +8,25 @@
 
 .input-header .logo {
   font-size: 19px;
+  margin-right: auto;
+}
+
+.input-header {
+  gap: 8px;
+}
+
+.lang-switch {
+  height: 36px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .region-pill {

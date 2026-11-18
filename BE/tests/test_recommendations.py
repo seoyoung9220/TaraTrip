@@ -108,6 +108,7 @@ def test_all_closed_is_no_results(client_with):
         {"budget": {"amount": 1000, "currency": "KRW"}},
         {"start_location": {"lat": 200, "lng": 120.9}},
         {"region": ""},
+        {"lang": "fr"},
     ],
 )
 def test_invalid_request(client_with, patch):
@@ -134,10 +135,24 @@ def test_travel_date_uses_that_weekdays_hours(client_with, day, expected):
     assert ("Fort Santiago" in names) is expected
 
 
-def test_reasons_are_korean_even_for_english_free_text(client_with):
+def test_lang_defaults_to_korean_even_for_english_free_text(client_with):
     res = client_with().post("/api/recommendations", json={**REQ, "free_text": "I want street food"})
     assert res.status_code == 200, res.text
     assert "코스" in res.json()["summary"]
+
+
+def test_lang_en(client_with):
+    res = client_with().post("/api/recommendations", json={**REQ, "lang": "en"})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert "route" in body["summary"]
+    assert all(not any("가" <= ch <= "힣" for ch in s["reason"]) for s in body["stops"])
+
+
+def test_lang_en_error_message(client_with):
+    res = client_with().post("/api/recommendations", json={**REQ, "lang": "en", "budget": {"amount": 10, "currency": "PHP"}})
+    assert res.status_code == 422
+    assert not any("가" <= ch <= "힣" for ch in res.json()["error"]["message"])
 
 
 def test_times_are_accepted(client_with):

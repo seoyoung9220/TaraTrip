@@ -2,7 +2,8 @@ import { divIcon, latLngBounds } from 'leaflet'
 import { useMemo } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer } from 'react-leaflet'
 import type { Stop } from '../api/types.ts'
-import { duration, TRANSPORT_KO } from '../lib/format.ts'
+import { duration } from '../lib/format.ts'
+import { useT } from '../lib/i18n.ts'
 import { useRoadLegs, type LatLngTuple } from '../lib/useRoadLegs.ts'
 
 interface Props {
@@ -30,6 +31,7 @@ const WALK_LINE = { ...LINE, weight: 3, dashArray: '2 7', lineCap: 'round' as co
 // Numbered pins in visiting order. Legs follow roads when OSRM answers (useRoadLegs),
 // straight lines otherwise; walking legs are dotted. Each leg is labeled with mode and minutes.
 export default function RouteMap({ stops, onSelect }: Props) {
+  const t = useT()
   const bounds = useMemo(() => latLngBounds(stops.map((s) => [s.lat, s.lng])), [stops])
   const roads = useRoadLegs(stops)
   const legs = useMemo(
@@ -71,7 +73,7 @@ export default function RouteMap({ stops, onSelect }: Props) {
             <Marker
               key={`${leg.key}-label`}
               position={leg.mid}
-              icon={legIcon(`${TRANSPORT_KO[leg.transport.mode]} ${duration(leg.transport.minutes)}`)}
+              icon={legIcon(`${t.mode[leg.transport.mode]} ${duration(leg.transport.minutes, t)}`)}
               interactive={false}
               keyboard={false}
             />

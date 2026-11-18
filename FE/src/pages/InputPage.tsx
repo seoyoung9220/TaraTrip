@@ -6,6 +6,7 @@ import { BUDGET_STEPS, FALLBACK_START, FOODS, REGION } from '../config.ts'
 import { dayLabel, today, tomorrow } from '../lib/date.ts'
 import { peso, won } from '../lib/format.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
+import { setLang, useLang, useT } from '../lib/i18n.ts'
 import { useRegions } from '../lib/useRegions.ts'
 import './InputPage.css'
 
@@ -20,6 +21,8 @@ export default function InputPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const prev = location.state as RecommendationRequest | null
+  const t = useT()
+  const lang = useLang()
   const rate = useExchangeRate()
   const regions = useRegions()
 
@@ -79,17 +82,13 @@ export default function InputPage() {
       travel_date: date,
       ...(timesSet ? { start_time: startTime, end_time: endTime } : {}),
       ...(freeText.trim() ? { free_text: freeText.trim() } : {}),
+      lang,
     }
     // Keep the query string so ?mockError=... survives into the result screen.
     navigate({ pathname: '/route', search: location.search }, { state: req })
   }
 
-  const startLabel = {
-    idle: '현재 위치로 설정',
-    locating: '찾는 중…',
-    here: '현재 위치 사용 중',
-    denied: '기본 위치 사용 중',
-  }[startState]
+  const startLabel = t.locate[startState]
 
   return (
     <form className="screen input-page" onSubmit={submit}>
@@ -97,10 +96,14 @@ export default function InputPage() {
         <span className="logo">
           Tara<b>Trip</b>
         </span>
+        <button type="button" className="lang-switch" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>
+          {lang === 'ko' ? 'EN' : '한국어'}
+          <span className="visually-hidden">{t.langSwitch}</span>
+        </button>
         {regions.length > 1 ? (
           <label className="region-pill region-select">
             <Icon name="pin" size={15} />
-            <select value={region} onChange={(e) => setPickedRegion(e.target.value)} aria-label="지역">
+            <select value={region} onChange={(e) => setPickedRegion(e.target.value)} aria-label={t.regionLabel}>
               {regions.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -118,11 +121,11 @@ export default function InputPage() {
       </header>
 
       <main className="input-main">
-        <h1 className="title">{`${dayLabel(date)} 하루,\n어떻게 보내고 싶나요?`}</h1>
+        <h1 className="title">{t.title(dayLabel(date, t))}</h1>
 
         <section className="field">
           <label className="label" htmlFor="free-text">
-            편하게 적어도 돼요
+            {t.freeTextLabel}
           </label>
           <textarea
             id="free-text"
@@ -130,13 +133,13 @@ export default function InputPage() {
             rows={2}
             value={freeText}
             onChange={(e) => setFreeText(e.target.value)}
-            placeholder="예: 1,000페소로 현지 음식 먹고 시장 구경하고 싶어"
+            placeholder={t.freeTextPlaceholder}
           />
         </section>
 
         <section className="field">
           <label className="label" htmlFor="budget">
-            하루 예산
+            {t.budgetLabel}
           </label>
           <div className="amount">
             <span className="amount-sign">₱</span>
@@ -149,10 +152,10 @@ export default function InputPage() {
               onChange={(e) => setBudget(Number(e.target.value.replace(/\D/g, '').slice(0, 7)) || 0)}
               placeholder="0"
             />
-            <span className="amount-unit">페소</span>
+            <span className="amount-unit">{t.pesoUnit}</span>
           </div>
           {rate !== null && budget > 0 && (
-            <p className="amount-krw">≈ {won(budget, rate)} · 오늘 환율 기준</p>
+            <p className="amount-krw">≈ {won(budget, rate)} · {t.rateNote}</p>
           )}
           <div className="quick-add">
             {BUDGET_STEPS.map((step) => (
@@ -164,20 +167,20 @@ export default function InputPage() {
         </section>
 
         <section className="field">
-          <h2 className="label">언제 가요?</h2>
+          <h2 className="label">{t.whenLabel}</h2>
           <div className="chips">
             {[today(), tomorrow()].map((d) => (
               <button key={d} type="button" className="chip" aria-pressed={date === d} onClick={() => setDate(d)}>
-                {dayLabel(d)}
+                {dayLabel(d, t)}
               </button>
             ))}
             <label className="chip date-chip" data-selected={date !== today() && date !== tomorrow()}>
               <Icon name="calendar" size={16} />
-              {date !== today() && date !== tomorrow() ? dayLabel(date) : '다른 날'}
+              {date !== today() && date !== tomorrow() ? dayLabel(date, t) : t.otherDay}
               <input
                 type="date"
                 className="date-native"
-                aria-label="여행 날짜 고르기"
+                aria-label={t.pickDate}
                 min={today()}
                 value={date}
                 onChange={(e) => e.target.value && setDate(e.target.value)}
@@ -186,7 +189,7 @@ export default function InputPage() {
           </div>
           <div className="time-row">
             <label className="time-field">
-              <span>출발</span>
+              <span>{t.startTime}</span>
               <input
                 type="time"
                 value={startTime}
@@ -200,7 +203,7 @@ export default function InputPage() {
               ~
             </span>
             <label className="time-field">
-              <span>마무리</span>
+              <span>{t.endTime}</span>
               <input
                 type="time"
                 value={endTime}
@@ -211,11 +214,11 @@ export default function InputPage() {
               />
             </label>
           </div>
-          {timeError && <p className="field-error">마무리 시간은 출발 시간보다 늦어야 해요.</p>}
+          {timeError && <p className="field-error">{t.timeError}</p>}
         </section>
 
         <section className="field">
-          <h2 className="label">먹고 싶은 음식</h2>
+          <h2 className="label">{t.foodsLabel}</h2>
           <div className="chips">
             {FOODS.map((food) => (
               <button
@@ -232,14 +235,14 @@ export default function InputPage() {
         </section>
 
         <section className="field">
-          <h2 className="label">꼭 가보고 싶은 곳</h2>
-          <button type="button" className="search-field" disabled title="관광지 검색은 준비 중이에요">
+          <h2 className="label">{t.mustVisitLabel}</h2>
+          <button type="button" className="search-field" disabled title={t.searchSoonTitle}>
             <Icon name="search" size={18} />
-            관광지 검색
-            <span className="soon">준비 중</span>
+            {t.searchAttractions}
+            <span className="soon">{t.soon}</span>
           </button>
           <div className="start-row">
-            <span>출발 위치</span>
+            <span>{t.startLabel}</span>
             <button
               type="button"
               className="locate"
@@ -251,14 +254,14 @@ export default function InputPage() {
             </button>
           </div>
           {startState === 'denied' && (
-            <p className="start-note">위치를 쓸 수 없어서 기본 출발점으로 추천해요. 지도에서 고르는 기능은 곧 열려요.</p>
+            <p className="start-note">{t.startDenied}</p>
           )}
         </section>
       </main>
 
       <div className="footer">
         <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit}>
-          코스 추천받기
+          {t.submit}
         </button>
       </div>
     </form>

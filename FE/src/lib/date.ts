@@ -1,3 +1,5 @@
+import type { Messages } from './i18n.ts'
+
 // Dates as "YYYY-MM-DD" in the device's local time (the traveler is in the Philippines).
 
 export function isoDate(d: Date): string {
@@ -15,13 +17,10 @@ export function tomorrow(): string {
   return isoDate(d)
 }
 
-const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토']
-
-/** "오늘", "내일", or "11월 20일 (금)". */
-export function dayLabel(iso: string): string {
-  if (iso === today()) return '오늘'
-  if (iso === tomorrow()) return '내일'
+/** "오늘"/"Today", "내일"/"Tomorrow", or "11월 20일 (금)"/"Fri, Nov 20". */
+export function dayLabel(iso: string, t: Messages): string {
+  if (iso === today()) return t.today
+  if (iso === tomorrow()) return t.tomorrow
   const [y, m, d] = iso.split('-').map(Number)
-  const weekday = WEEKDAY_KO[new Date(y, m - 1, d).getDay()]
-  return `${m}월 ${d}일 (${weekday})`
+  return t.date(m, d, t.weekdays[new Date(y, m - 1, d).getDay()])
 }

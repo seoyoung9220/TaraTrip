@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getPlace } from '../api/client.ts'
 import type { PlaceDetail } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
-import { CATEGORY_KO, duration, peso, pesoRange, won } from '../lib/format.ts'
+import { duration, peso, pesoRange, won } from '../lib/format.ts'
+import { useT } from '../lib/i18n.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
 import type { PlaceState } from './ResultPage.tsx'
 import './PlacePage.css'
@@ -14,6 +15,7 @@ export default function PlacePage() {
   const { placeId = '' } = useParams()
   const navigate = useNavigate()
   const stop = (useLocation().state as PlaceState | null)?.stop ?? null
+  const t = useT()
   const rate = useExchangeRate()
 
   const [place, setPlace] = useState<PlaceDetail | null>(null)
@@ -36,12 +38,12 @@ export default function PlacePage() {
     return (
       <main className="screen">
         <div className="header">
-          <button type="button" className="icon-btn" onClick={goBack} aria-label="뒤로">
+          <button type="button" className="icon-btn" onClick={goBack} aria-label={t.back}>
             <Icon name="back" />
           </button>
         </div>
         <p className="place-status" role="status">
-          {failed ? '장소 정보를 찾지 못했어요.' : '불러오는 중…'}
+          {failed ? t.placeNotFound : t.loading}
         </p>
       </main>
     )
@@ -58,16 +60,16 @@ export default function PlacePage() {
             type="button"
             className="photo-btn"
             onClick={() => setPhoto((i) => (i + 1) % photos.length)}
-            aria-label="다음 사진"
+            aria-label={t.nextPhoto}
           >
-            <img src={photos[photo]} alt={`${place.name} 사진 ${photo + 1}`} />
+            <img src={photos[photo]} alt={t.photoAlt(place.name, photo + 1)} />
           </button>
         ) : (
           <span className="photo-empty">
             <Icon name="image" size={44} stroke={1.5} />
           </span>
         )}
-        <button type="button" className="icon-btn floating photo-back" onClick={goBack} aria-label="코스로 돌아가기">
+        <button type="button" className="icon-btn floating photo-back" onClick={goBack} aria-label={t.backToRoute}>
           <Icon name="back" />
         </button>
         {photos.length > 0 && (
@@ -81,10 +83,10 @@ export default function PlacePage() {
         <div className="place-head">
           <div className="place-tags">
             <span className="place-tag">
-              {stop ? `코스 ${stop.order}번째 · ` : ''}
-              {CATEGORY_KO[place.category]}
+              {stop ? t.stopNth(stop.order) : ''}
+              {t.category[place.category]}
             </span>
-            {place.cash_only && <span className="place-tag cash">현금만 가능</span>}
+            {place.cash_only && <span className="place-tag cash">{t.cashOnly}</span>}
           </div>
           <h1 className="place-name">{place.name}</h1>
           <p className="place-desc">{place.description}</p>
@@ -95,7 +97,7 @@ export default function PlacePage() {
             <div>
               <dt>
                 <Icon name="dish" size={18} stroke={2} />
-                대표 메뉴
+                {t.signatureMenu}
               </dt>
               <dd>
                 {place.signature_menu}
@@ -111,21 +113,21 @@ export default function PlacePage() {
           <div>
             <dt>
               <Icon name="wallet" size={18} stroke={2} />
-              가격대
+              {t.priceRange}
             </dt>
-            <dd>{pesoRange(place.price_range.min, place.price_range.max)}</dd>
+            <dd>{pesoRange(place.price_range.min, place.price_range.max, t)}</dd>
           </div>
           <div>
             <dt>
               <Icon name="clock" size={18} stroke={2} />
-              영업시간
+              {t.hours}
             </dt>
             <dd>{place.opening_hours.replace('-', ' – ')}</dd>
           </div>
           <div>
             <dt>
               <Icon name="pin" size={18} stroke={2} />
-              주소
+              {t.address}
             </dt>
             <dd>{place.address}</dd>
           </div>
@@ -133,12 +135,12 @@ export default function PlacePage() {
 
         {stop && (
           <section className="in-route">
-            <h2>이 코스에서는</h2>
+            <h2>{t.inRoute}</h2>
             <p className="in-route-cost">
               <strong>{peso(stop.est_cost)}</strong>
               <span>
                 {rate !== null && `≈ ${won(stop.est_cost, rate)} · `}
-                {duration(stop.stay_minutes)} 머물러요
+                {t.stay(duration(stop.stay_minutes, t))}
               </span>
             </p>
             <p className="in-route-reason">{stop.reason}</p>
@@ -149,7 +151,7 @@ export default function PlacePage() {
       <div className="footer">
         <a className="btn btn-primary btn-block" href={directions} target="_blank" rel="noreferrer">
           <Icon name="route" size={20} />
-          길찾기
+          {t.directions}
         </a>
       </div>
     </main>

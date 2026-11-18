@@ -33,6 +33,7 @@ class RecommendationRequest(BaseModel):
     start_time: ClockTime | None = None
     end_time: ClockTime | None = None
     free_text: str | None = Field(default=None, max_length=1000)
+    lang: Literal["ko", "en"] = "ko"  # language of summary, reasons and AI error messages
 
     @model_validator(mode="after")
     def _end_after_start(self) -> "RecommendationRequest":
