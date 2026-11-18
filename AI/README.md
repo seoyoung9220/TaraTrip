@@ -50,15 +50,18 @@ def create_recommendation(body: dict, conn=Depends(get_conn)):
 | 폼 값과 `free_text`가 다를 때 | 폼 값 우선. 예산은 항상 폼 값, `free_text`는 시간·취향·제외할 곳 등 빈 곳만 채움 |
 | 출발·종료 시각 | `start_time`/`end_time` > `free_text`의 시간 > 기본 10:00~16:00. 여행 날짜는 `travel_date`(없으면 마닐라 기준 오늘)의 요일 영업시간 사용 |
 | 이동 수단 | 거리(직선 × 1.3)가 1km 이하면 도보, 8km 미만이면 지프니, 그 이상은 택시. 걷는 게 더 빠르면 도보. "걷기 싫어"면 도보는 0.5km까지. 요금은 `recommend.py`의 `TRANSPORT` (지프니 최저 14페소는 2026년 9월 요금, km당·택시 요금은 추정) |
-| 교통비 | `transport.cost` = `cost_breakdown.transport`, `total_cost`는 명세대로 각 장소 비용의 합. 예산 검사는 출발지→첫 장소, 마지막 장소→출발지 교통비까지 포함 |
-| 첫 구간 | 명세대로 첫 장소 `transport: null`. 출발지→첫 장소도 같은 기준으로 계산해서 도착 시각에 반영하고 `summary`에 적음 (`FIRST_LEG_IN_RESPONSE = True`로 바꾸면 첫 장소에도 채움) |
+| 교통비 | `transport.cost` = `cost_breakdown.transport`. `total_cost` = 모든 장소의 `est_cost` + 모든 `transport.cost`(첫 장소 포함) + `return_transport.cost`. 화면 총액·`summary` 금액·예산 검사가 모두 같은 값 |
+| 추천 이유·소개 | 동선이 정해진 뒤 LLM이 장소별 `reason`과 `summary` 앞의 소개 한 문장을 씀 (`core/explain.py`). 시간·요금·걷는 시간은 코드가 붙임. 해요체가 아니거나, 숫자·다른 나라 글자·"여행자는" 같은 제3자 말투가 들어가거나, 너무 길거나, 실패하면 그 부분만 템플릿 문장. 백엔드가 `explain_llm`으로 큰 모델(`EXPLAIN_MODEL`, Llama 3.3 70B)을 넘기면 한국어가 더 자연스러움. `explain=False`면 템플릿만 |
+| 첫 구간·돌아가는 구간 | 출발지→첫 장소는 첫 장소의 `transport`에 채움 (`FIRST_LEG_IN_RESPONSE = False`면 예전처럼 `null`). 마지막 장소→출발지는 응답 최상위 `return_transport` `{mode, minutes, cost}` |
 | `est_cost` | 식당·시장·가게는 `price_min`~`price_max`의 가운데 값, 관광지는 `entry_fee` |
 | `summary`, `reason` 언어 | `recommend(..., lang="ko")`로 넘긴 값이 최우선. 없으면 `free_text`의 언어, 그것도 없으면 한국어. 지금 문장은 한국어·영어만 있음 |
 | 영업시간 | 여행 날짜(기본: 마닐라 기준 오늘)의 요일 값 사용. `closed`면 제외, 비어 있으면 09:00-18:00으로 가정 |
 | 코스 길이 | 6시간 기준 최대 5곳 ("여유롭게" 4곳, "알차게" 6곳). 시간에 비례해서 조정 (3시간이면 3곳, 최대 +2곳까지). 시간·예산이 남아도 더 채우지 않음 |
 | 먹는 곳 | 식당·시장(카페·빵집 포함) 최대 2곳, 음식을 골랐거나 먹거리 위주 요청이면 3곳, 8시간 이상이면 +1곳. 3곳 연속 금지 (밥 → 카페까지는 OK) |
-| 장소 점수 | DB에 `local_score`가 없어서 모두 5점. 컬럼이 생기면 자동으로 사용 |
-| `region` | `district`와 대소문자 무시하고 같으면 그 지역 우선, 모르는 지역이면 무시 |
+| 장소 점수 | DB의 `local_score`(없으면 5점) + 취향 + 소상공인 + 꼭 가기, 그다음 거리 감점. 점수 1점 = 이동 20분으로 저울질 (`PENALTY_PER_POINT`) |
+| `region` | `district`와 대소문자 무시하고 같으면 그 지역 우선. 거리 기준점은 선택한 지역 장소들의 중심(없으면 출발지)이고, 2km 넘게 떨어진 곳은 1km마다 2점 감점 (`FREE_RADIUS_KM`, `FAR_PENALTY_PER_KM`). 동네 이름이 달라도 가까우면 괜찮음 |
+| 관광지(`attractions`) | 장소 이름과 거의 같으면 꼭 가기(가장 잘 맞는 한 곳만), `museum` 같은 일반 단어면 취향으로 봄 |
+| 임베딩이 없을 때 취향 | 고른 음식·관광지 단어가 장소 이름·태그·설명·대표 메뉴에 있으면 +8점, 그 중 소상공인은 +5점(아니면 +2점). 취향 우선, 그 안에서 소상공인 우대 |
 
 ## 폴더 구조
 
@@ -70,6 +73,7 @@ AI/
 │   ├─ parse_query.py     문장 → 조건 (LLM 프롬프트, 검증, 키워드 보정)
 │   ├─ personalize.py     임베딩으로 취향 맞춤 점수
 │   ├─ plan_route.py      시간·예산·영업시간 안에서 동선 최적화
+│   ├─ explain.py         LLM이 추천 이유·코스 소개 쓰기 (해요체 검사, 실패 시 템플릿)
 │   ├─ assistant.py       대화형 버전 handle_request() (되묻기·대안 제안, 채팅 UI용)
 │   └─ utils.py           공용 도구
 ├─ data/
@@ -79,6 +83,9 @@ AI/
 │   └─ keys.py            데모용 키 읽기
 ├─ tests/
 │   └─ test_recommend.py  API.md 형식 검증
+├─ eval/
+│   ├─ run_eval.py        성능 평가 (여행자 20명 × TaraTrip / 가까운 곳부터 / 무작위)
+│   └─ RESULTS.md         최근 평가 결과 (발표용 표와 예시)
 └─ legacy/
     └─ taratrip_step1.py  OR-Tools로 만든 첫 버전 (참고용, 실행엔 pip install ortools 필요)
 ```
@@ -89,6 +96,8 @@ AI/
 python tests/test_recommend.py   # 형식 검증 (키 필요 없음)
 python demos/demo3.py            # MOCK 모드
 python demos/demo3.py --real     # 진짜 Workers AI (아래 키 파일 필요)
+python demos/demo_explain.py --real   # 추천 이유 문장: 템플릿 / 작은 모델 / 큰 모델 비교
+python eval/run_eval.py 장소.xlsx     # 성능 평가 (UST 엑셀 또는 DB 행 JSON, openpyxl 필요). --real이면 진짜 임베딩
 ```
 
 `--real`은 `AI/.env`에서 키를 읽어요. 이 파일은 저장소 `.gitignore`가 막아주니 절대 다른 이름으로 바꿔서 올리지 마세요.
