@@ -369,6 +369,8 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     lang = (lang or query["language"] or DEFAULT_LANG).lower()
     sl = req["start_location"]
     start_location = [sl["lat"], sl["lng"]]
+    el = req.get("end_location")  # 없으면 출발지로 돌아오는 코스
+    end_location = [el["lat"], el["lng"]] if el else None
 
     personal = None
     if embed and query["preferenceText"]:
@@ -377,7 +379,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
         except Exception as e:  # 임베딩이 실패하면 태그 방식으로
             notes.append(f"취향 점수 실패, 태그 방식 사용: {e}")
 
-    b = build_plan_input(query, places, start_location, personal)
+    b = build_plan_input(query, places, start_location, personal, end_location)
     plan_input = b["planInput"]
     query["mustVisitNames"] = b["mustVisitNames"]
     plan_input["options"].update(_limits(query, req))

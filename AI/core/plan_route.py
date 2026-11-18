@@ -92,12 +92,14 @@ def plan_route(input):
       budget: 숫자 (페소)
       start, end: "HH:MM"
       startLocation: [lat, lng]
+      endLocation: [lat, lng] (선택) 마지막 장소 다음에 갈 곳. 없으면 startLocation (왕복)
       places: [{ name, lat, lng, opens:"HH:MM", closes:"HH:MM",
                  stayMin, costPhp, smallBiz:bool, score:1~10, isMeal:bool(선택) }]
       options: DEFAULTS 덮어쓰기 (선택)
     반환: { stops, totalCost, totalWalkMin, totalFare, returnTime, returnWalkMin, returnMode, returnFare, skipped }
       stops[i]: { name, arrive, walkMin(이동 분, 수단 무관), mode, fare, stay, cost, smallBiz }
-      totalCost = 장소 비용 + 모든 교통비(출발지→첫 장소, 마지막 장소→출발지 포함)
+      totalCost = 장소 비용 + 모든 교통비(출발지→첫 장소, 마지막 장소→도착지 포함)
+      return* = 마지막 장소 → 도착지(endLocation, 없으면 출발지) 구간
       totalWalkMin = 실제로 걷는 구간의 분만 합친 값
     """
     opt = {**DEFAULTS, **(input.get("options") or {})}
@@ -112,13 +114,13 @@ def plan_route(input):
     } for p in input["places"]]
     n = len(P)
 
-    # 이동 행렬: 인덱스 n = 출발지. T = 분, F = 요금, M = 수단
-    loc = [[p["lat"], p["lng"]] for p in P] + [input["startLocation"]]
+    # 이동 행렬: 인덱스 n = 출발지, n+1 = 도착지 (따로 없으면 출발지와 같은 곳). T = 분, F = 요금, M = 수단
+    loc = [[p["lat"], p["lng"]] for p in P] + [input["startLocation"], input.get("endLocation") or input["startLocation"]]
     L = [[leg(a, b, opt) for b in loc] for a in loc]
     M = [[x[0] for x in row] for row in L]
     T = [[x[1] for x in row] for row in L]
     F = [[x[2] for x in row] for row in L]
-    DEPOT = n
+    DEPOT, FINISH = n, n + 1
 
     def leg_cost(i, j):
         """목표 함수에 더할 이동 비용: 걷는 분은 travelWeight만큼 무겁게, 타는 분은 그대로"""
@@ -159,11 +161,11 @@ def plan_route(input):
             if cost > budget:                   # 예산 초과
                 return None
             prev = i
-        if too_far_on_foot(prev, DEPOT):
+        if too_far_on_foot(prev, FINISH):
             return None
-        t += T[prev][DEPOT]
-        travel += leg_cost(prev, DEPOT)
-        cost += F[prev][DEPOT]                  # 돌아가는 교통비까지 예산 안에
+        t += T[prev][FINISH]
+        travel += leg_cost(prev, FINISH)
+        cost += F[prev][FINISH]                 # 도착지까지 가는 교통비도 예산 안에
         if t > END or cost > budget:            # 종료 시간·예산 초과
             return None
         return travel
@@ -294,11 +296,11 @@ def plan_route(input):
         t += p["stayMin"]
         total_cost += p["costPhp"]
         prev = i
-    back = T[prev][DEPOT]
+    back = T[prev][FINISH]
     t += back
-    if M[prev][DEPOT] == "walk":
+    if M[prev][FINISH] == "walk":
         total_walk += back
-    total_fare += F[prev][DEPOT]
+    total_fare += F[prev][FINISH]
 
     return {
         "stops": stops,
@@ -307,7 +309,7 @@ def plan_route(input):
         "totalFare": total_fare,
         "returnTime": to_hhmm(t),
         "returnWalkMin": back,
-        "returnMode": M[prev][DEPOT],
-        "returnFare": F[prev][DEPOT],
+        "returnMode": M[prev][FINISH],
+        "returnFare": F[prev][FINISH],
         "skipped": [p["name"] for i, p in enumerate(P) if i not in route],
     }

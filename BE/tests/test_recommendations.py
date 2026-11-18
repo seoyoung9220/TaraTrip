@@ -155,6 +155,15 @@ def test_lang_en_error_message(client_with):
     assert not any("가" <= ch <= "힣" for ch in res.json()["error"]["message"])
 
 
+def test_end_location(client_with):
+    far = {"lat": 14.5547, "lng": 121.0244}
+    res = client_with().post("/api/recommendations", json={**REQ, "end_location": far})
+    assert res.status_code == 200, res.text
+    assert res.json()["return_transport"]["mode"] != "walk"
+    bad = client_with().post("/api/recommendations", json={**REQ, "end_location": {"lat": 200, "lng": 0}})
+    assert bad.status_code == 400
+
+
 def test_times_are_accepted(client_with):
     res = client_with().post("/api/recommendations", json={**REQ, "start_time": "09:00", "end_time": "18:30"})
     assert res.status_code == 200, res.text

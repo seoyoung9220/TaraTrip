@@ -191,7 +191,7 @@ function RouteView({ route, req, onBack }: ViewProps) {
             </li>
           ))}
         </ol>
-        <Leg transport={route.return_transport} prefix={t.toStart} className="return-leg" />
+        <Leg transport={route.return_transport} prefix={req.end_location ? t.toEnd : t.toStart} className="return-leg" />
 
         <button type="button" className="btn btn-soft btn-block again" onClick={onBack}>
           {t.again}

@@ -29,6 +29,7 @@ class RecommendationRequest(BaseModel):
     foods: list[str] = []
     attractions: list[str] = []
     start_location: LatLng
+    end_location: LatLng | None = None  # where the day ends; default: back to start_location
     travel_date: date | None = None  # "YYYY-MM-DD"; default: today in Manila (AI module)
     start_time: ClockTime | None = None
     end_time: ClockTime | None = None

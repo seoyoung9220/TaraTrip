@@ -409,3 +409,76 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Address search under 출발 위치 / 도착 위치 */
+.address-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.address-search .food-add-btn {
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+}
+
+.spinner.light {
+  border-color: rgba(255, 255, 255, 0.4);
+  border-top-color: var(--white);
+}
+
+.address-results {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.address-results button {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.address-results button:hover,
+.address-results button:focus-visible {
+  background: var(--soft);
+}
+
+.address-results svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--forest-mid);
+}
+
+.address-results span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.address-results strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.address-results small {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--sub);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

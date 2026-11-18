@@ -18,3 +18,11 @@ export const BUDGET_STEPS = [500, 1000, 3000]
  * Only the stop coordinates are sent; the first stop can be near the traveler's location.
  */
 export const ROUTING_URL: string = import.meta.env.VITE_ROUTING_URL ?? 'https://router.project-osrm.org'
+
+/**
+ * Nominatim (OpenStreetMap) search for typing a start or end address. The public server
+ * allows about one request per second and no search-as-you-type, so the app only searches
+ * when the traveler presses 검색/Search. Set VITE_GEOCODE_URL to '' to hide address search.
+ * Only the typed text is sent.
+ */
+export const GEOCODE_URL: string = import.meta.env.VITE_GEOCODE_URL ?? 'https://nominatim.openstreetmap.org'

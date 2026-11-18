@@ -11,6 +11,8 @@ export interface RecommendationRequest {
   foods?: string[]
   attractions?: string[]
   start_location: LatLng
+  /** Where the day ends. Omit to come back to start_location. */
+  end_location?: LatLng
   /** YYYY-MM-DD. Picks that weekday's opening hours; backend default is today in Manila. */
   travel_date?: string
   /** HH:MM. Omit to let free_text (or the default 10:00–16:00) decide. */
@@ -52,7 +54,7 @@ export interface Recommendation {
   currency: 'PHP'
   summary: string
   stops: Stop[]
-  /** Last stop back to start_location. Its cost is part of total_cost. */
+  /** Last stop to end_location (or back to start_location). Its cost is part of total_cost. */
   return_transport: Transport
 }
 
