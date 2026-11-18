@@ -20,6 +20,8 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
     출발지→첫 장소는 첫 장소의 transport, 마지막 장소→출발지는 return_transport로 응답에 넣고
     total_cost·예산에 두 구간 교통비 포함 (docs/API.md)
   - summary·reason 언어: recommend(lang=...)로 넘긴 값 > free_text의 언어 > 기본 "ko" (앱 화면이 한국어)
+  - reason·summary 문장: LLM이 장소별 이유와 코스 소개를 쓰고(core/explain.py), 숫자는 코드가 붙임
+    LLM이 없거나 실패하거나 이상한 문장(숫자 포함, 언어 틀림, 너무 김)을 쓰면 그 부분만 템플릿 문장
   - 코스 길이·식사: 6시간 기준 최대 5곳(여유 4, 알차게 6), 시간이 길거나 짧으면 비례해서 조정
     먹는 곳 최대 2곳(음식 선택 시 3곳, 8시간 이상이면 +1), 먹는 곳 3연속 금지
 """
@@ -27,9 +29,10 @@ import uuid
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from core.parse_query import parse_raw, merge_raw, validate_query, build_plan_input, matches
+from core.parse_query import parse_raw, merge_raw, validate_query, build_plan_input, matches, norm
+from core.explain import explain as explain_route
 from core.personalize import personal_bonus
-from core.plan_route import plan_route
+from core.plan_route import DEFAULTS as ROUTE_DEFAULTS, plan_route, road_km
 from core.utils import js_round, to_min
 
 
@@ -73,6 +76,17 @@ TRANSPORT = {
     "taxi": {"speedKmh": 18, "waitMin": 5, "flagDown": 50, "perKm": 15, "perMin": 2},
 }
 WALK_MAX_KM_LAZY = 0.5                # "걷기 싫어"면 이 거리까지만 걸음
+
+# 거리 vs 점수 저울 (eval/run_eval.py로 비교해서 정함)
+#   PENALTY_PER_POINT: 장소 점수 1점을 이동 몇 분과 같게 볼지. 크면 좋은 곳을 찾아 멀리 가고, 작으면 가까운 곳 위주
+#   기준점(선택한 지역의 중심, 없으면 출발지)에서 FREE_RADIUS_KM 넘게 떨어진 곳은 1km마다 FAR_PENALTY_PER_KM점 감점
+PENALTY_PER_POINT = 20
+FREE_RADIUS_KM = 2.0
+FAR_PENALTY_PER_KM = 2.0
+# 임베딩이 없을 때(키 없음·실패) 고른 음식·관광지 단어가 장소 태그·설명에 있으면 주는 가산점
+KEYWORD_BONUS = 8
+# 같은 상황에서 소상공인 가산점: 취향에 맞으면 크게, 아니면 작게 (취향 우선 원칙, 임베딩 모드와 같은 생각)
+SMALL_BIZ_MATCH, SMALL_BIZ_OTHER = 5, 2
 MODE_KO = {"walk": "도보", "jeepney": "지프니", "tricycle": "트라이시클", "taxi": "택시", "other": "기타"}
 MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"으로 세는 DB 카테고리 (카페·빵집도 restaurant)
 MAX_MEALS = 2                                         # 먹는 곳 최대 개수
@@ -153,7 +167,7 @@ def _form_raw(req, places):
     """폼 입력만으로 만든 조건 (LLM 결과와 같은 모양)"""
     foods = [f for f in req.get("foods") or [] if isinstance(f, str) and f.strip()]
     attractions = [a for a in req.get("attractions") or [] if isinstance(a, str) and a.strip()]
-    must = [a for a in attractions if any(matches(p["name"], a) for p in places)]
+    must = [a for a in attractions if _is_place_name(a, places)]
     liked = [a for a in attractions if a not in must]  # 장소 이름이 아니면 취향으로
 
     pref = []
@@ -211,6 +225,48 @@ def build_query(req, places, call_llm):
     return query, v["assumptions"] + notes
 
 
+def _is_place_name(word, places):
+    """폼의 관광지 칸 값이 진짜 장소 이름인지 ("Fort Santiago" → 예, "museum" → 아니고 취향)"""
+    w = norm(word)
+    return any(matches(p["name"], word) and len(w) > 0.6 * len(norm(p["name"])) for p in places)
+
+
+def _keyword_bonus(plan_input, req):
+    """임베딩 없이도 취향 반영: 고른 단어가 장소의 이름·태그·설명·대표 메뉴에 있으면 가산점 (한 번만)
+    소상공인 가산점도 여기서 취향에 맞는 만큼 줌 (plan_route의 고정 가산점은 끔)"""
+    terms = [t.lower().strip() for t in (req.get("foods") or []) + (req.get("attractions") or []) if t and t.strip()]
+    if not terms:
+        return  # 고른 게 없으면 plan_route의 기본 소상공인 가산점 그대로
+    plan_input["options"]["smallBizBonus"] = 0
+    for p in plan_input["places"]:
+        row = p["_row"]
+        text = " ".join([row["name"], row.get("description") or "", " ".join(row.get("tags") or []),
+                         row.get("signature_menu") or ""]).lower()
+        hit = any(t in text for t in terms)
+        if hit:
+            p["score"] += KEYWORD_BONUS
+        if p["smallBiz"]:
+            p["score"] += SMALL_BIZ_MATCH if hit else SMALL_BIZ_OTHER
+
+
+def _anchor(query, places, start_location):
+    """거리 기준점: 선택한 지역(region)에 장소가 있으면 그 장소들의 중심, 없으면 출발지"""
+    inside = [p for p in places if p["area"] in query["areas"]]
+    if inside:
+        return [sum(p["lat"] for p in inside) / len(inside), sum(p["lng"] for p in inside) / len(inside)]
+    return start_location
+
+
+def _penalize_far(plan_input, query, start_location):
+    """기준점에서 멀리 떨어진 장소는 점수를 깎아서 가까운 곳 위주로 (동네 이름이 달라도 가까우면 괜찮음)
+    모든 가산점(취향·소상공인·꼭 가기)을 더한 다음 마지막에 적용해야 함"""
+    anchor = _anchor(query, plan_input["places"], start_location)
+    opt = {**ROUTE_DEFAULTS, "detourFactor": 1}
+    for p in plan_input["places"]:
+        km = road_km(anchor, [p["lat"], p["lng"]], opt)
+        p["score"] = max(0, p["score"] - FAR_PENALTY_PER_KM * max(0, km - FREE_RADIUS_KM))  # 너무 멀면 0점 = 안 감
+
+
 def _limits(query, req):
     """여행 시간에 맞춘 장소 수·식사 제한"""
     hours = (to_min(query["end"]) - to_min(query["start"])) / 60
@@ -231,7 +287,7 @@ def _say(lang, ko, en):
 def _reason(p, query, personal, lang):
     parts = []
     fit = personal.get(p["name"]) if personal else None
-    if any(matches(p["name"], w) for w in query["mustVisit"]):
+    if p["name"] in query.get("mustVisitNames", []):
         parts.append(_say(lang, "꼭 가고 싶다고 하신 곳이에요", "You asked to visit this place"))
     elif fit and fit["fit"] >= 0.7:
         parts.append(_say(lang, "취향과 잘 맞아요", "A great match for your tastes"))
@@ -288,7 +344,8 @@ def _summary(stops, query, route, lang):
 # ─────────────────────────────────────────────
 # 4) 입구 함수
 # ─────────────────────────────────────────────
-def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, lang=None):
+def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, lang=None,
+              explain_llm=None, explain=True):
     """
     req         : POST /api/recommendations 요청 JSON
     place_rows  : DB places 행 리스트
@@ -297,6 +354,8 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     travel_date : 여행 날짜 (datetime.date). 없으면 요청의 travel_date("YYYY-MM-DD"), 그것도 없으면 마닐라 기준 오늘
     lang        : summary·reason·에러 메시지 언어 ("ko" 또는 "en"). 넘기면 free_text 언어보다 우선
                   없으면 free_text의 언어, 그것도 없으면 DEFAULT_LANG("ko")
+    explain_llm : 추천 이유를 쓸 LLM (없으면 call_llm). 큰 모델(core.explain.EXPLAIN_MODEL)을 추천
+    explain     : False면 LLM 설명 없이 템플릿 문장만 (빠름)
     """
     if travel_date is None and req.get("travel_date"):
         travel_date = date.fromisoformat(str(req["travel_date"]))
@@ -322,11 +381,22 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
 
     b = build_plan_input(query, places, start_location, personal)
     plan_input = b["planInput"]
+    query["mustVisitNames"] = b["mustVisitNames"]
     plan_input["options"].update(_limits(query, req))
     plan_input["options"]["transport"] = {
         **TRANSPORT,
         "walkMaxKm": WALK_MAX_KM_LAZY if query["walking"] == "minimal" else TRANSPORT["walkMaxKm"],
     }
+    plan_input["options"]["penaltyPerPoint"] = PENALTY_PER_POINT
+    if personal is None:
+        _keyword_bonus(plan_input, req)
+    # plan_route가 따로 더하던 소상공인 가산점도 점수에 미리 넣어서, 거리 감점이 모든 가산점 뒤에 오게 함
+    biz = plan_input["options"].get("smallBizBonus", ROUTE_DEFAULTS["smallBizBonus"])
+    for p in plan_input["places"]:
+        if p["smallBiz"]:
+            p["score"] += biz
+    plan_input["options"]["smallBizBonus"] = 0
+    _penalize_far(plan_input, query, start_location)
     route = plan_route(plan_input)
 
     if not route["stops"]:
@@ -361,8 +431,22 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
             "transport": transport,
             "cost_breakdown": {"food": p["_food"], "entry": p["_entry"], "transport": transport["cost"]},
             "reason": _reason(p, query, personal, lang),
-            "_smallBiz": p["smallBiz"], "_area": p["area"],
+            "_smallBiz": p["smallBiz"], "_area": p["area"], "_row": row,
         })
+
+    # LLM이 이유·소개 문장 쓰기 (실패한 부분은 위의 템플릿 그대로)
+    explained = {"intro": None, "reasons": {}, "error": "off"}
+    llm = explain_llm or call_llm
+    if explain and llm:
+        traveler = {
+            "preferences": query["preferenceText"], "foods": req.get("foods") or [],
+            "attractions": req.get("attractions") or [], "must_visit": query["mustVisit"],
+            "avoid": query["avoid"], "free_text": req.get("free_text"),
+            "pace": query["pace"], "walking": query["walking"],
+        }
+        explained = explain_route([{"row": s["_row"]} for s in stops], traveler, lang, llm)
+        for s in stops:
+            s["reason"] = explained["reasons"].get(s["place_id"], s["reason"])
 
     return_transport = {"mode": route["returnMode"], "minutes": route["returnWalkMin"], "cost": route["returnFare"]}
     total_cost = sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in stops) + return_transport["cost"]
@@ -370,9 +454,12 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     last = stops[-1]
     total_minutes = to_min(last["arrival_time"]) + last["stay_minutes"] - to_min(stops[0]["arrival_time"])
     summary = _summary(stops, query, route, lang)
+    if explained["intro"]:
+        summary = f"{explained['intro']} {summary}"
     for s in stops:
         s.pop("_smallBiz")
         s.pop("_area")
+        s.pop("_row")
 
     return {
         "route_id": uuid.uuid4().hex[:12],
@@ -383,5 +470,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
         "stops": stops,
         "return_transport": return_transport,
         # 명세에는 없지만 디버깅에 쓰는 값. 백엔드는 응답에서 빼면 됨 (response_model이 자동으로 걸러줌)
-        "_debug": {"query": query, "assumptions": notes + b["notes"]},
+        "_debug": {"query": query, "assumptions": notes + b["notes"],
+                   "explain": {"llm_reasons": len(explained["reasons"]), "intro": bool(explained["intro"]),
+                               "error": explained["error"]}},
     }
