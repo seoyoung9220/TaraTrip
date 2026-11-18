@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getRecommendation } from '../api/client.ts'
-import { ApiError, type Recommendation, type RecommendationRequest, type Stop } from '../api/types.ts'
+import { ApiError, type Recommendation, type RecommendationRequest, type Stop, type Transport } from '../api/types.ts'
 import ErrorView from '../components/ErrorView.tsx'
 import Icon from '../components/Icon.tsx'
 import LoadingScreen from '../components/LoadingScreen.tsx'
@@ -170,14 +170,9 @@ function RouteView({ route, req, onBack }: ViewProps) {
 
         <h2 className="stops-heading">코스 순서</h2>
         <ol className="stops">
-          {route.stops.map((s) => (
+          {route.stops.map((s, i) => (
             <li key={s.place_id}>
-              {s.transport && (
-                <div className="transport">
-                  <span className="transport-line" aria-hidden="true" />
-                  <span className="transport-pill">{transportLabel(s.transport)}</span>
-                </div>
-              )}
+              <Leg transport={s.transport} prefix={i === 0 ? '출발지에서' : undefined} />
               <button type="button" className="stop-row" onClick={() => openPlace(s)}>
                 <span className="order">{s.order}</span>
                 <span className="stop-info">
@@ -194,15 +189,31 @@ function RouteView({ route, req, onBack }: ViewProps) {
             </li>
           ))}
         </ol>
-        <div className="transport return-leg">
-          <span className="transport-line" aria-hidden="true" />
-          <span className="transport-pill">출발지로 · {transportLabel(route.return_transport)}</span>
-        </div>
+        <Leg transport={route.return_transport} prefix="출발지로" className="return-leg" />
 
         <button type="button" className="btn btn-soft btn-block again" onClick={onBack}>
           조건 바꿔서 다시 추천받기
         </button>
       </section>
     </main>
+  )
+}
+
+interface LegProps {
+  transport: Transport
+  /** Names the start for the first and return legs. */
+  prefix?: string
+  className?: string
+}
+
+/** One leg between stops. Hidden when there is no travel (e.g. starting right at the first stop). */
+function Leg({ transport, prefix, className }: LegProps) {
+  if (transport.minutes <= 0) return null
+  const label = transportLabel(transport)
+  return (
+    <div className={className ? `transport ${className}` : 'transport'}>
+      <span className="transport-line" aria-hidden="true" />
+      <span className="transport-pill">{prefix ? `${prefix} · ${label}` : label}</span>
+    </div>
   )
 }
