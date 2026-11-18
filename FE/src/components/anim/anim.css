@@ -194,9 +194,20 @@
   animation: blink 1s ease-in-out infinite alternate;
 }
 
+/* The loading jeepney starting another lap at stop 1. */
+.respawn {
+  animation: respawn 0.35s ease-out;
+}
+@keyframes respawn {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cloud,
   .lane,
+  .respawn,
   .loading-steps li.active .st {
     animation: none;
   }

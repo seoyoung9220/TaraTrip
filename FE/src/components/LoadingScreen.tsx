@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createMover, moveTo, runMovers, type Mover } from './anim/pathMover.ts'
+import { createMover, jumpTo, moveTo, runMovers, type Mover } from './anim/pathMover.ts'
 import { BUSHES, ROAD_FRACS, ROAD_PATH } from './anim/scenery.ts'
 import { useT } from '../lib/i18n.ts'
 import Icon from './Icon.tsx'
@@ -11,17 +11,21 @@ const DRIVE_MS = 1400
 
 interface Props {
   region: string
-  /** True once the recommendation has arrived: all steps finish and the jeepney reaches stop 4. */
+  /** True once the recommendation has arrived: all steps finish and the jeepney drives on to stop 4. */
   done: boolean
   onClose: () => void
 }
 
-// 2. 추천 중: a jeepney drives stop to stop, one stop per step.
-// Steps advance on a timer and wait at the last step until `done`.
+// Legs between the stops on the road (1→2, 2→3, 3→4).
+const LEGS = ROAD_FRACS.length - 1
+
+// 2. 추천 중: a jeepney drives stop to stop, one leg per tick. Until the result arrives it
+// loops: after stop 4 it starts over from stop 1. The step list stops at its last step.
 export default function LoadingScreen({ region, done, onClose }: Props) {
   const t = useT()
-  const [timedStep, setTimedStep] = useState(0)
-  const step = done ? STEP_COUNT : timedStep
+  // Legs driven so far; keeps counting while the request is still running.
+  const [hop, setHop] = useState(0)
+  const step = done ? STEP_COUNT : Math.min(hop, STEP_COUNT - 1)
 
   const pathRef = useRef<SVGPathElement>(null)
   const jeepRef = useRef<SVGGElement>(null)
@@ -29,10 +33,10 @@ export default function LoadingScreen({ region, done, onClose }: Props) {
   const moverRef = useRef<Mover | null>(null)
 
   useEffect(() => {
-    if (done || timedStep >= STEP_COUNT - 1) return
-    const t = setTimeout(() => setTimedStep((s) => s + 1), STEP_MS)
+    if (done) return
+    const t = setTimeout(() => setHop((h) => h + 1), STEP_MS)
     return () => clearTimeout(t)
-  }, [timedStep, done])
+  }, [hop, done])
 
   useLayoutEffect(() => {
     const mover = createMover({
@@ -47,8 +51,24 @@ export default function LoadingScreen({ region, done, onClose }: Props) {
   }, [])
 
   useEffect(() => {
-    if (moverRef.current) moveTo(moverRef.current, ROAD_FRACS[Math.min(step + 1, ROAD_FRACS.length - 1)], DRIVE_MS)
-  }, [step])
+    const mover = moverRef.current
+    const jeep = jeepRef.current
+    if (!mover || !jeep) return
+    if (done) {
+      // Finish the current lap at stop 4.
+      moveTo(mover, ROAD_FRACS[LEGS], DRIVE_MS)
+      return
+    }
+    const target = (hop % LEGS) + 1
+    if (target === 1 && hop > 0) {
+      // Back to stop 1 for another lap: the jeepney fades in there and the stops go dark again.
+      jumpTo(mover, ROAD_FRACS[0])
+      jeep.classList.remove('respawn')
+      void jeep.getBoundingClientRect() // restart the fade-in animation
+      jeep.classList.add('respawn')
+    }
+    moveTo(mover, ROAD_FRACS[target], DRIVE_MS)
+  }, [hop, done])
 
   return (
     <div className="loading" role="status" aria-live="polite">

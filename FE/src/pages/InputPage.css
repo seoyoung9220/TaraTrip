@@ -279,3 +279,41 @@
   font-size: 13px;
   color: var(--mango-deep);
 }
+
+/* Way into the business side, at the end of the form. */
+.biz-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--mango-soft);
+  color: var(--warm-text);
+  text-decoration: none;
+}
+
+.biz-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--mango-deep);
+}
+
+.biz-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.biz-text strong {
+  font-size: 15px;
+  color: var(--ink);
+}

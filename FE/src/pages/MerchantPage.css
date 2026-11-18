@@ -226,3 +226,19 @@
   word-break: break-all;
   user-select: all;
 }
+
+/* Back to the traveler side. */
+.merchant .header {
+  justify-content: space-between;
+}
+
+.mode-switch {
+  margin-right: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
