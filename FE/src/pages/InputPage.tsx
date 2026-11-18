@@ -16,6 +16,18 @@ type StartState = 'idle' | 'locating' | 'here' | 'denied'
 const DEFAULT_START = '10:00'
 const DEFAULT_END = '16:00'
 
+// Every 30 minutes from 06:00 to 23:30. A select instead of <input type="time">, whose
+// AM/PM text follows the phone's language and ignores the KO/EN switch.
+const TIME_OPTIONS = Array.from({ length: 36 }, (_, i) => {
+  const minutes = 6 * 60 + i * 30
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${minutes % 60 ? '30' : '00'}`
+})
+
+/** The grid, plus `value` if it came from elsewhere (an earlier request) and is off the grid. */
+function timeOptions(value: string): string[] {
+  return TIME_OPTIONS.includes(value) ? TIME_OPTIONS : [...TIME_OPTIONS, value].sort()
+}
+
 // 1. 조건 입력. Coming back from an error or the result screen refills the previous request.
 export default function InputPage() {
   const navigate = useNavigate()
@@ -209,30 +221,41 @@ export default function InputPage() {
           <div className="time-row">
             <label className="time-field">
               <span>{t.startTime}</span>
-              <input
-                type="time"
+              <select
                 value={startTime}
                 onChange={(e) => {
-                  setStartTime(e.target.value || DEFAULT_START)
+                  setStartTime(e.target.value)
                   setTimesSet(true)
                 }}
-              />
+              >
+                {timeOptions(startTime).map((v) => (
+                  <option key={v} value={v}>
+                    {t.clock(v)}
+                  </option>
+                ))}
+              </select>
             </label>
             <span className="time-sep" aria-hidden="true">
               ~
             </span>
             <label className="time-field">
               <span>{t.endTime}</span>
-              <input
-                type="time"
+              <select
                 value={endTime}
                 onChange={(e) => {
-                  setEndTime(e.target.value || DEFAULT_END)
+                  setEndTime(e.target.value)
                   setTimesSet(true)
                 }}
-              />
+              >
+                {timeOptions(endTime).map((v) => (
+                  <option key={v} value={v}>
+                    {t.clock(v)}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
+          <p className="time-note">{t.timeZoneNote}</p>
           {timeError && <p className="field-error">{t.timeError}</p>}
         </section>
 

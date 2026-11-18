@@ -1,10 +1,13 @@
 import type { Messages } from './i18n.ts'
 
-// Dates as "YYYY-MM-DD" in the device's local time (the traveler is in the Philippines).
+// Dates as "YYYY-MM-DD" in Manila time (PHT, UTC+8), the same "today" the backend uses,
+// so a tester outside the Philippines sees the trip's local date.
+
+const MANILA = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' })
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export function isoDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return MANILA.format(d) // en-CA formats as YYYY-MM-DD
 }
 
 export function today(): string {
@@ -12,9 +15,7 @@ export function today(): string {
 }
 
 export function tomorrow(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return isoDate(d)
+  return isoDate(new Date(Date.now() + DAY_MS)) // Manila has no daylight saving time
 }
 
 /** "오늘"/"Today", "내일"/"Tomorrow", or "11월 20일 (금)"/"Fri, Nov 20". */
