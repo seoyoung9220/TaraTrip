@@ -4,7 +4,7 @@ import { getPlace } from '../api/client.ts'
 import type { PlaceDetail } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
 import { duration, peso, pesoRange, won } from '../lib/format.ts'
-import { useT } from '../lib/i18n.ts'
+import { useLang, useT } from '../lib/i18n.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
 import type { PlaceState } from './ResultPage.tsx'
 import './PlacePage.css'
@@ -16,6 +16,7 @@ export default function PlacePage() {
   const navigate = useNavigate()
   const stop = (useLocation().state as PlaceState | null)?.stop ?? null
   const t = useT()
+  const lang = useLang()
   const rate = useExchangeRate()
 
   const [place, setPlace] = useState<PlaceDetail | null>(null)
@@ -24,13 +25,13 @@ export default function PlacePage() {
 
   useEffect(() => {
     let cancelled = false
-    getPlace(placeId)
+    getPlace(placeId, lang)
       .then((p) => !cancelled && setPlace(p))
       .catch(() => !cancelled && setFailed(true))
     return () => {
       cancelled = true
     }
-  }, [placeId])
+  }, [placeId, lang])
 
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/'))
 

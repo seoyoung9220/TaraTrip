@@ -122,6 +122,12 @@ Recommends a one-day route within the budget.
 
 Returns details for one place.
 
+### Query
+
+| Param | Required | Description |
+|---|---|---|
+| `lang` | no | `"ko"` (default) or `"en"`. With `ko`, `description` and `signature_menu` are the Korean copies (`places.description_ko` / `signature_menu_ko`, filled by `BE/scripts/translate_places.py`); a place not translated yet returns English. `name` and `address` are never translated. Any other value → 400 `INVALID_REQUEST` |
+
 ### Response `200 OK`
 
 ```json
@@ -144,7 +150,8 @@ Returns details for one place.
 
 | Field | Type | Notes |
 |---|---|---|
-| `signature_menu` | string \| null | Dish or product the place is known for. `null` if not collected |
+| `description` | string | About the place, in the requested `lang` when available |
+| `signature_menu` | string \| null | Dish or product the place is known for, in the requested `lang` when available. `null` if not collected |
 | `signature_price` | integer \| null | PHP price of one `signature_menu` item. `null` if unknown |
 | `cash_only` | boolean | `true` if the place takes cash only (no card / GCash / Maya) |
 

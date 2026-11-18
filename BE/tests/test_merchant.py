@@ -51,6 +51,8 @@ class FakeConn:
             values = [getattr(v, "obj", v) for v in params]  # unwrap Jsonb
             self.rows[pid] = {"place_id": pid, **dict(zip(FIELDS, values)), "edit_key_hash": values[-1]}
             result = self.public(pid)
+        elif sql.startswith("select count(*) as n from information_schema.columns"):
+            result = {"n": 1}  # the Korean columns exist
         elif sql.startswith("select edit_key_hash"):
             result = self.rows.get(params[0])
         elif sql.startswith("select"):

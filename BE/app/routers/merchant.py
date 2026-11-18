@@ -34,6 +34,26 @@ def db_values(body: MerchantPlaceInput) -> list:
     return [Jsonb(data[f]) if f == "opening_hours" else data[f] for f in FIELDS]
 
 
+_has_ko_columns = False
+
+
+def has_ko_columns(conn) -> bool:
+    """True once BE/db/schema.sql has added description_ko / signature_menu_ko.
+
+    Checked so this code can be deployed before the DB change. Only a True answer is
+    cached; until then every update asks again, so no restart is needed after the change.
+    """
+    global _has_ko_columns
+    if not _has_ko_columns:
+        row = conn.execute(
+            "select count(*) as n from information_schema.columns "
+            "where table_name = 'places' and column_name = %s",
+            ("description_ko",),
+        ).fetchone()
+        _has_ko_columns = row["n"] > 0
+    return _has_ko_columns
+
+
 def check_key(conn, place_id: str, key: str | None) -> None:
     row = conn.execute("select edit_key_hash from places where place_id = %s", (place_id,)).fetchone()
     if row is None:
@@ -78,9 +98,19 @@ def update_own_place(
 ) -> dict:
     check_key(conn, place_id, x_edit_key)
     sets = ", ".join(f"{f} = %s" for f in FIELDS)
+    # An owner who changes the English text makes the Korean copy stale: clear it so the
+    # place shows English until scripts/translate_places.py translates it again.
+    values = db_values(body)
+    params = list(values)
+    if has_ko_columns(conn):
+        sets += (
+            ", description_ko = case when description is distinct from %s then null else description_ko end"
+            ", signature_menu_ko = case when signature_menu is distinct from %s then null else signature_menu_ko end"
+        )
+        params += [values[FIELDS.index("description")], values[FIELDS.index("signature_menu")]]
     row = conn.execute(
         f"update places set {sets}, last_checked = current_date where place_id = %s returning {RETURN}",
-        [*db_values(body), place_id],
+        [*params, place_id],
     ).fetchone()
     conn.commit()
     return row
