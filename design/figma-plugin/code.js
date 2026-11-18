@@ -1,4 +1,4 @@
-// TaraTrip 관광객 화면 와이어프레임을 그린다.
+// TaraTrip 관광객 화면과 소상공인 화면 와이어프레임을 그린다.
 // 실행할 때마다 새 페이지를 만들어 거기에만 그린다. 기존 페이지와 프레임은 건드리지 않는다.
 
 const C = {
@@ -992,6 +992,187 @@ function buildStartPick() {
   return root;
 }
 
+// ---------- row 4: small-business screens (FE/src/pages/MerchantPage.tsx, MerchantFormPage.tsx) ----------
+// The owners are in the Philippines, so these screens are in English like the app.
+
+function mInput(text, o) {
+  o = o || {};
+  const box = F(o.name || 'input', {
+    dir: 'H', gap: 6, h: o.multiline ? undefined : (o.h || 48), w: o.w,
+    pad: o.multiline ? [12, 14] : [0, o.padX === undefined ? 14 : o.padX],
+    radius: 8, fill: C.white, stroke: C.line, align: o.multiline ? 'MIN' : 'CENTER'
+  });
+  if (o.peso) add(box, T('₱', 16, 400, C.sub));
+  add(box, T(text || ' ', 16, 400, o.placeholder ? C.hint : C.ink, { lh: o.multiline ? 150 : undefined }));
+  return box;
+}
+
+function mField(parent, labelText, input, hint, o) {
+  const f = add(parent, F(labelText, { dir: 'V', gap: 8 }), o && o.grow ? { grow: true } : { fillW: true });
+  add(f, label(labelText));
+  add(f, input, { fillW: true });
+  // A multi-line box's text can fill it only once the box itself fills the field.
+  if (input.name === 'textarea') add(input, input.children[0], { fillW: true });
+  if (hint) add(f, T(hint, 13, 400, C.hint, { lh: 150 }), { fillW: true });
+  return f;
+}
+
+function mRow(parent, name) {
+  return add(parent, F(name, { dir: 'H', gap: 12, align: 'CENTER', justify: 'SPACE_BETWEEN' }), { fillW: true });
+}
+
+function mSection(parent, titleText, last) {
+  const s = add(parent, F(titleText, { dir: 'V', gap: 16, pad: [24, 20, 24, 20] }), { fillW: true });
+  if (!last) {
+    s.strokes = [paint(C.divider)];
+    s.strokeTopWeight = 0; s.strokeLeftWeight = 0; s.strokeRightWeight = 0; s.strokeBottomWeight = 8;
+    s.strokeAlign = 'INSIDE';
+  }
+  return s;
+}
+
+function mCheck(text, checked, o) {
+  o = o || {};
+  const row = F(text, { dir: 'H', gap: 10, align: 'CENTER', w: o.w });
+  const box = add(row, F('checkbox', {
+    dir: 'H', w: 20, h: 20, radius: 4, align: 'CENTER', justify: 'CENTER',
+    fill: checked ? C.forest : C.white, stroke: checked ? C.forest : '#B8BDC4', strokeWeight: 1.5
+  }));
+  if (checked) add(box, icon(ICON.check, C.white));
+  add(row, T(text, 16, 400));
+  return row;
+}
+
+function quickButton(text, svg) {
+  return button(text, { bg: C.soft, fg: C.body, h: 32, radius: 8, padX: 12, size: 13, weight: 600, icon: svg });
+}
+
+function merchantLogo() {
+  const t = T('TaraTrip for business', 18, 800, C.forest);
+  t.setRangeFills(4, 8, [paint(C.mango)]);
+  t.setRangeFontName(8, 21, fontCache[500]);
+  t.setRangeFills(8, 21, [paint(C.sub)]);
+  t.name = 'logo';
+  return t;
+}
+
+function buildMerchantHome() {
+  const root = screen('M1. 소상공인 홈', 844);
+  const header = add(root, F('header', { dir: 'H', h: 56, pad: [0, 20], align: 'CENTER' }), { fillW: true });
+  add(header, merchantLogo());
+
+  const main = add(root, F('main', { dir: 'V', gap: 20, pad: [12, 20, 24, 20] }), { fillW: true, grow: true });
+  add(main, title('Bring travelers\nto your door'), { fillW: true });
+  add(main, bodyText('List your eatery, shop or stall for free. TaraTrip suggests local places like yours in day routes built around a traveler\'s budget.'), { fillW: true });
+  link(add(main, button('Register my place', { bg: C.forest, fg: C.white, icon: ICON.pin18 }), { fillW: true }), 'mForm');
+
+  const card = add(main, F('edit card', { dir: 'V', gap: 14, pad: 20, radius: 20, stroke: C.line }), { fillW: true });
+  add(card, T('Already listed? Edit your place', 18, 800), { fillW: true });
+  mField(card, 'Place ID', mInput('BIZ-0001', { placeholder: true }));
+  mField(card, 'Edit key', mInput(''));
+  link(add(card, softButton('Edit my place'), { fillW: true }), 'mEdit');
+  return root;
+}
+
+// editing: false = register (/merchant/new), true = edit (/merchant/edit/:placeId) with saved values.
+function buildMerchantForm(editing) {
+  const root = F(editing ? 'M4. 가게 수정 (저장됨)' : 'M2. 가게 등록', { dir: 'V', w: 390, fill: C.white, clip: true });
+  const v = function (filled, empty) { return editing ? filled : empty; };
+
+  const header = add(root, F('header', { dir: 'H', gap: 4, h: 56, pad: [0, 8], align: 'CENTER' }), { fillW: true });
+  link(add(header, iconButton('back', ICON.back)), 'mHome');
+  add(header, T(editing ? 'Edit BIZ-0001' : 'Register your place', 17, 700));
+
+  const about = mSection(root, 'About your place');
+  add(about, T('About your place', 18, 800));
+  mField(about, 'Name *', mInput(v('[가게 이름]', '')));
+  const type = add(about, F('Type *', { dir: 'V', gap: 8 }), { fillW: true });
+  add(type, label('Type *'));
+  const chips = add(type, F('chips', { dir: 'H', gap: 8, wrap: true }), { fillW: true });
+  [['Eatery', true], ['Market / stall', false], ['Shop', false], ['Place to visit', false]]
+    .forEach(function (c) { add(chips, chip(c[0], c[1])); });
+  mField(about, 'Short description', mInput(v('[가게 소개 문구]', ''), { multiline: true, name: 'textarea' }),
+    'What makes your place special? Travelers read this.');
+  mField(about, 'Tags', mInput(v('lutong bahay, silog', '')), 'Separate with commas, e.g. lutong bahay, silog, street food');
+
+  const loc = mSection(root, 'Location');
+  add(loc, T('Location', 18, 800));
+  mField(loc, 'Address *', mInput(v('[주소]', '')));
+  mField(loc, 'Barangay / district', mInput(v('Binondo', '')), 'e.g. Binondo, Intramuros');
+  const pinField = add(loc, F('Pin on the map *', { dir: 'V', gap: 8 }), { fillW: true });
+  add(pinField, label('Pin on the map *'));
+  const map = add(pinField, F('map (Leaflet in app)', { dir: 'H', h: 220, radius: 16, fill: C.map, clip: true, align: 'CENTER', justify: 'CENTER' }), { fillW: true });
+  add(map, icon(BIG_PIN_SVG, C.forest)).name = 'pin';
+  const pinRow = mRow(pinField, 'pin help');
+  add(pinRow, T('Tap the map or drag the pin to your door.', 13, 400, C.hint, { lh: 150 }), { grow: true }).textAutoResize = 'HEIGHT';
+  add(pinRow, quickButton('I\'m here now', ICON.locate));
+
+  const prices = mSection(root, 'Prices (per person)');
+  add(prices, T('Prices (per person)', 18, 800));
+  const range = mRow(prices, 'range');
+  mField(range, 'From', mInput(v('80', ''), { peso: true }), null, { grow: true });
+  mField(range, 'To', mInput(v('250', ''), { peso: true }), null, { grow: true });
+  const best = mRow(prices, 'best seller');
+  mField(best, 'Best seller', mInput(v('Pancit canton', 'e.g. Pancit canton'), { placeholder: !editing }), null, { grow: true });
+  mField(best, 'Its price', mInput(v('120', ''), { peso: true }), null, { grow: true });
+  add(prices, mCheck('Cash only (no card, GCash or Maya)', editing));
+
+  const hours = mSection(root, 'Opening hours');
+  const hoursHead = mRow(hours, 'title');
+  add(hoursHead, T('Opening hours', 18, 800));
+  add(hoursHead, quickButton('Same as Monday'));
+  const list = add(hours, F('days', { dir: 'V', gap: 8 }), { fillW: true });
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (d) {
+    const closed = editing && d === 'Sun';
+    const row = add(list, F(d, { dir: 'H', h: 48, align: 'CENTER', justify: 'SPACE_BETWEEN' }), { fillW: true });
+    add(row, mCheck(d, !closed, { w: 72 }));
+    if (closed) {
+      add(row, T('Closed', 16, 400, C.hint));
+    } else {
+      const times = add(row, F('times', { dir: 'H', gap: 6, align: 'CENTER' }));
+      add(times, mInput('08:00 AM', { w: 112, h: 40, padX: 8 }));
+      add(times, T('–', 16, 400, C.sub));
+      add(times, mInput('08:00 PM', { w: 112, h: 40, padX: 8 }));
+    }
+  });
+  mField(hours, 'Usual visit length (minutes)', mInput(v('30', 'e.g. 30'), { placeholder: !editing }));
+
+  const contact = mSection(root, 'Contact and photos', true);
+  add(contact, T('Contact and photos', 18, 800));
+  mField(contact, 'Phone or Facebook page', mInput(v('[연락처]', '')));
+  mField(contact, 'Photo links', mInput(v('https://…', ''), { multiline: true, name: 'textarea' }), 'One https:// link per line (up to 10).');
+
+  const f = footer(root);
+  f.counterAxisAlignItems = 'MIN';
+  if (editing) add(f, T('Saved. Travelers see the changes now.', 14, 600, C.forestMid));
+  const submit = add(f, primaryButton(editing ? 'Save changes' : 'Register'), { fillW: true });
+  if (!editing) link(submit, 'mDone');
+  return root;
+}
+
+function buildMerchantDone() {
+  const root = screen('M3. 등록 완료 (수정 키)', 844);
+  const main = add(root, F('main', { dir: 'V', gap: 20, pad: [44, 20, 24, 20] }), { fillW: true, grow: true });
+  const badge = add(main, F('done badge', { dir: 'H', w: 64, h: 64, radius: 32, fill: C.mangoSoft, align: 'CENTER', justify: 'CENTER' }));
+  add(badge, icon(ICON.pin.replace('width="15" height="15"', 'width="30" height="30"'), C.mangoDeep));
+  add(main, title('[가게 이름]\nis on TaraTrip'), { fillW: true });
+  add(main, bodyText('Travelers can now get your place in their routes.'), { fillW: true });
+
+  const keys = add(main, F('keys', { dir: 'V', gap: 14, pad: 20, radius: 20, fill: C.soft }), { fillW: true });
+  add(keys, T('Save these two now. You need them to edit your place, and the edit key is shown only once.', 14, 400, C.mangoInk, { lh: 150 }), { fillW: true });
+  [['Place ID', 'BIZ-0001'], ['Edit key', '[수정 키]']].forEach(function (k) {
+    const row = add(keys, F(k[0], { dir: 'V', gap: 4 }), { fillW: true });
+    add(row, label(k[0]));
+    add(row, T(k[1], 20, 700));
+  });
+  add(keys, button('Copy both', { bg: C.white, fg: C.ink, h: 48, size: 16, weight: 600 }), { fillW: true });
+
+  link(add(main, primaryButton('See how travelers see it'), { fillW: true }), 'place');
+  const doneRow = add(main, F('done', { dir: 'H', justify: 'CENTER' }), { fillW: true });
+  link(add(doneRow, textButton('Done')), 'mHome');
+  return root;
+}
+
 // ---------- run ----------
 
 const screens = {};
@@ -1055,6 +1236,10 @@ async function main() {
   screens.region = buildRegion();
   screens.search = buildSearch();
   screens.startPick = buildStartPick();
+  screens.mHome = buildMerchantHome();
+  screens.mForm = buildMerchantForm(false);
+  screens.mDone = buildMerchantDone();
+  screens.mEdit = buildMerchantForm(true);
 
   // Loading: 0.5 s at each stop, 0.9 s of driving to the next (SUB linear hops), loop after the last.
   for (let i = 0; i < loadingSeq.length - 1; i++) {
@@ -1071,11 +1256,12 @@ async function main() {
   }
   auto('splashLanded', 'splashIn', 0.8, 'dissolve', 0.25);
 
-  // Rows 4–5 hold the in-between animation frames, away from the screens people review.
+  // Row 4 is the small-business flow. Rows 5–6 hold the in-between animation frames, away from the screens people review.
   const rows = [
     ['splash', 'splashIn', 'splashMid', 'splashLanded', 'onb1', 'onb2', 'permAsk', 'permDenied'],
     ['main'].concat(loadingRests, ['result', 'place', 'errBudget', 'errNone', 'errTimeout']),
     ['region', 'search', 'startPick'],
+    ['mHome', 'mForm', 'mDone', 'mEdit'],
     flightMids,
     loadingMids
   ];
@@ -1124,7 +1310,8 @@ async function main() {
   try {
     page.flowStartingPoints = [
       { nodeId: screens.splash.id, name: '앱 시작' },
-      { nodeId: screens.main.id, name: '홈부터' }
+      { nodeId: screens.main.id, name: '홈부터' },
+      { nodeId: screens.mHome.id, name: '소상공인' }
     ];
   } catch (e) { /* optional */ }
 
