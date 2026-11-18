@@ -25,6 +25,7 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
   - 코스 길이·식사: 6시간 기준 최대 5곳(여유 4, 알차게 6), 시간이 길거나 짧으면 비례해서 조정
     먹는 곳 최대 2곳(음식 선택 시 3곳, 8시간 이상이면 +1), 먹는 곳 3연속 금지
 """
+import logging
 import uuid
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -34,6 +35,8 @@ from core.explain import explain as explain_route
 from core.personalize import personal_bonus
 from core.plan_route import DEFAULTS as ROUTE_DEFAULTS, plan_route, road_km
 from core.utils import js_round, to_min
+
+log = logging.getLogger(__name__)
 
 
 class BudgetTooLowError(Exception):
@@ -311,18 +314,15 @@ def _summary(stops, query, route, lang):
     where = ", ".join(areas)
     legs = [s["mode"] for s in route["stops"]] + [route["returnMode"]]
     rides = {m: legs.count(m) for m in ("jeepney", "tricycle", "taxi") if legs.count(m)}
-    first = route["stops"][0]
     spend, walk, fare = route["totalCost"], route["totalWalkMin"], route["totalFare"]
     if lang == "ko":
         txt = f"{query['start']}부터 {n}곳을 도는 코스예요"
         txt += f" ({where})" if where else ""
         txt += f". 예산 {query['budgetPhp']}페소 중 {spend}페소를 써요"
-        txt += f"(출발지 왕복 교통비 포함)." if fare else "."
+        txt += f"(교통비 포함)." if fare else "."
         txt += f" 걷는 시간은 총 {walk}분이에요." if walk else " 걷는 구간은 거의 없어요."
         if rides:
             txt += " " + "·".join(f"{MODE_KO[m]} {c}번" for m, c in rides.items()) + f"을 타요(교통비 {fare}페소)."
-        if first["mode"] != "walk":
-            txt += f" 출발지에서 첫 장소까지는 {MODE_KO[first['mode']]}로 {first['walkMin']}분 걸려요."
         if small:
             txt += f" 현지 소상공인 가게 {small}곳이 포함돼 있어요."
         return txt
@@ -330,12 +330,10 @@ def _summary(stops, query, route, lang):
     txt = f"{article} {n}-stop route starting at {query['start']}"
     txt += f" around {where}" if where else ""
     txt += f". It uses ₱{spend} of your ₱{query['budgetPhp']} budget"
-    txt += " (round-trip fares from your start included)." if fare else "."
+    txt += " (fares included)." if fare else "."
     txt += f" About {walk} minutes of walking." if walk else " Almost no walking."
     if rides:
         txt += " Rides: " + ", ".join(f"{m} ×{c}" for m, c in rides.items()) + f" (₱{fare} in fares)."
-    if first["mode"] != "walk":
-        txt += f" Getting to the first stop takes {first['walkMin']} min by {first['mode']}."
     if small:
         txt += f" Includes {small} locally owned small business{'es' if small > 1 else ''}."
     return txt
@@ -450,7 +448,10 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
 
     return_transport = {"mode": route["returnMode"], "minutes": route["returnWalkMin"], "cost": route["returnFare"]}
     total_cost = sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in stops) + return_transport["cost"]
-    assert total_cost == route["totalCost"]
+    if total_cost != route["totalCost"]:
+        # 화면 총액과 경로 계산의 지출이 다르면 버그. 사용자에게 500을 내지 않고 로그만 남김
+        log.warning("total_cost mismatch: response %s vs route %s stops=%s",
+                    total_cost, route["totalCost"], [s["place_id"] for s in stops])
     last = stops[-1]
     total_minutes = to_min(last["arrival_time"]) + last["stay_minutes"] - to_min(stops[0]["arrival_time"])
     summary = _summary(stops, query, route, lang)

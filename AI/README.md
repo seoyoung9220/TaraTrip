@@ -50,9 +50,9 @@ def create_recommendation(body: dict, conn=Depends(get_conn)):
 | 폼 값과 `free_text`가 다를 때 | 폼 값 우선. 예산은 항상 폼 값, `free_text`는 시간·취향·제외할 곳 등 빈 곳만 채움 |
 | 출발·종료 시각 | `start_time`/`end_time` > `free_text`의 시간 > 기본 10:00~16:00. 여행 날짜는 `travel_date`(없으면 마닐라 기준 오늘)의 요일 영업시간 사용 |
 | 이동 수단 | 거리(직선 × 1.3)가 1km 이하면 도보, 8km 미만이면 지프니, 그 이상은 택시. 걷는 게 더 빠르면 도보. "걷기 싫어"면 도보는 0.5km까지. 요금은 `recommend.py`의 `TRANSPORT` (지프니 최저 14페소는 2026년 9월 요금, km당·택시 요금은 추정) |
-| 교통비 | `transport.cost` = `cost_breakdown.transport`, `total_cost`는 명세대로 각 장소 비용의 합. 예산 검사는 출발지→첫 장소, 마지막 장소→출발지 교통비까지 포함 |
+| 교통비 | `transport.cost` = `cost_breakdown.transport`. `total_cost` = 모든 장소의 `est_cost` + 모든 `transport.cost`(첫 장소 포함) + `return_transport.cost`. 화면 총액·`summary` 금액·예산 검사가 모두 같은 값 |
 | 추천 이유·소개 | 동선이 정해진 뒤 LLM이 장소별 `reason`과 `summary` 앞의 소개 한 문장을 씀 (`core/explain.py`). 시간·요금·걷는 시간은 코드가 붙임. 해요체가 아니거나, 숫자·다른 나라 글자·"여행자는" 같은 제3자 말투가 들어가거나, 너무 길거나, 실패하면 그 부분만 템플릿 문장. 백엔드가 `explain_llm`으로 큰 모델(`EXPLAIN_MODEL`, Llama 3.3 70B)을 넘기면 한국어가 더 자연스러움. `explain=False`면 템플릿만 |
-| 첫 구간 | 명세대로 첫 장소 `transport: null`. 출발지→첫 장소도 같은 기준으로 계산해서 도착 시각에 반영하고 `summary`에 적음 (`FIRST_LEG_IN_RESPONSE = True`로 바꾸면 첫 장소에도 채움) |
+| 첫 구간·돌아가는 구간 | 출발지→첫 장소는 첫 장소의 `transport`에 채움. 마지막 장소→출발지는 응답 최상위 `return_transport` `{mode, minutes, cost}` |
 | `est_cost` | 식당·시장·가게는 `price_min`~`price_max`의 가운데 값, 관광지는 `entry_fee` |
 | `summary`, `reason` 언어 | `recommend(..., lang="ko")`로 넘긴 값이 최우선. 없으면 `free_text`의 언어, 그것도 없으면 한국어. 지금 문장은 한국어·영어만 있음 |
 | 영업시간 | 여행 날짜(기본: 마닐라 기준 오늘)의 요일 값 사용. `closed`면 제외, 비어 있으면 09:00-18:00으로 가정 |
