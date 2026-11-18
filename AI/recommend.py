@@ -17,8 +17,8 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
   - 출발·종료 시각: start_time/end_time > free_text의 시간 > 기본 10:00~16:00 (docs/API.md)
   - 여행 날짜: travel_date 인자 > 요청의 travel_date > 마닐라 기준 오늘 → 그 요일 영업시간 사용
   - 이동수단: 1km 이하는 도보, 8km 미만은 지프니, 그 이상은 택시 (걷는 게 더 빠르면 도보). 요금은 TRANSPORT 참고
-    첫 장소의 transport는 명세대로 null. 출발지→첫 장소, 마지막 장소→출발지 구간도 같은 기준으로
-    시간·요금을 계산해서 도착 시각과 예산에는 반영하고, summary에 따로 적음
+    출발지→첫 장소는 첫 장소의 transport, 마지막 장소→출발지는 return_transport로 응답에 넣고
+    total_cost·예산에 두 구간 교통비 포함 (docs/API.md)
   - summary·reason 언어: recommend(lang=...)로 넘긴 값 > free_text의 언어 > 기본 "ko" (앱 화면이 한국어)
   - 코스 길이·식사: 6시간 기준 최대 5곳(여유 4, 알차게 6), 시간이 길거나 짧으면 비례해서 조정
     먹는 곳 최대 2곳(음식 선택 시 3곳, 8시간 이상이면 +1), 먹는 곳 3연속 금지
@@ -74,7 +74,6 @@ TRANSPORT = {
 }
 WALK_MAX_KM_LAZY = 0.5                # "걷기 싫어"면 이 거리까지만 걸음
 MODE_KO = {"walk": "도보", "jeepney": "지프니", "tricycle": "트라이시클", "taxi": "택시", "other": "기타"}
-FIRST_LEG_IN_RESPONSE = False         # True면 첫 장소에도 transport를 채움 (지금 명세는 null)
 MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"으로 세는 DB 카테고리 (카페·빵집도 restaurant)
 MAX_MEALS = 2                                         # 먹는 곳 최대 개수
 MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 먹거리 위주로 요청했을 때
@@ -348,8 +347,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
     for i, s in enumerate(route["stops"]):
         p = by_name[s["name"]]
         row = p["_row"]
-        show = i > 0 or FIRST_LEG_IN_RESPONSE
-        transport = {"mode": s["mode"], "minutes": s["walkMin"], "cost": s["fare"]} if show else None
+        transport = {"mode": s["mode"], "minutes": s["walkMin"], "cost": s["fare"]}
         stops.append({
             "order": i + 1,
             "place_id": row["place_id"],
@@ -361,13 +359,14 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
             "est_cost": s["cost"],
             "stay_minutes": s["stay"],
             "transport": transport,
-            "cost_breakdown": {"food": p["_food"], "entry": p["_entry"],
-                               "transport": transport["cost"] if transport else 0},
+            "cost_breakdown": {"food": p["_food"], "entry": p["_entry"], "transport": transport["cost"]},
             "reason": _reason(p, query, personal, lang),
             "_smallBiz": p["smallBiz"], "_area": p["area"],
         })
 
-    total_cost = sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in stops)
+    return_transport = {"mode": route["returnMode"], "minutes": route["returnWalkMin"], "cost": route["returnFare"]}
+    total_cost = sum(s["est_cost"] + s["cost_breakdown"]["transport"] for s in stops) + return_transport["cost"]
+    assert total_cost == route["totalCost"]
     last = stops[-1]
     total_minutes = to_min(last["arrival_time"]) + last["stay_minutes"] - to_min(stops[0]["arrival_time"])
     summary = _summary(stops, query, route, lang)
@@ -382,6 +381,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
         "currency": "PHP",
         "summary": summary,
         "stops": stops,
+        "return_transport": return_transport,
         # 명세에는 없지만 디버깅에 쓰는 값. 백엔드는 응답에서 빼면 됨 (response_model이 자동으로 걸러줌)
         "_debug": {"query": query, "assumptions": notes + b["notes"]},
     }

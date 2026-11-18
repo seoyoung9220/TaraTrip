@@ -37,7 +37,8 @@ export interface Stop extends LatLng {
   arrival_time: string
   est_cost: number
   stay_minutes: number
-  transport: Transport | null
+  /** From the previous stop; for the first stop, from start_location. */
+  transport: Transport
   cost_breakdown: { food: number; entry: number; transport: number }
   reason: string
 }
@@ -49,6 +50,8 @@ export interface Recommendation {
   currency: 'PHP'
   summary: string
   stops: Stop[]
+  /** Last stop back to start_location. Its cost is part of total_cost. */
+  return_transport: Transport
 }
 
 export interface PlaceDetail extends LatLng {

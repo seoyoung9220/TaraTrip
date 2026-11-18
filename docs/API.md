@@ -55,7 +55,7 @@ Recommends a one-day route within the budget.
 ```json
 {
   "route_id": "string",
-  "total_cost": 920,
+  "total_cost": 457,
   "total_minutes": 330,
   "currency": "PHP",
   "summary": "Why this route was recommended",
@@ -70,7 +70,7 @@ Recommends a one-day route within the budget.
       "arrival_time": "10:00",
       "est_cost": 250,
       "stay_minutes": 60,
-      "transport": null,
+      "transport": { "mode": "walk", "minutes": 10, "cost": 0 },
       "cost_breakdown": { "food": 250, "entry": 0, "transport": 0 },
       "reason": "Why this stop was chosen"
     },
@@ -88,14 +88,15 @@ Recommends a one-day route within the budget.
       "cost_breakdown": { "food": 180, "entry": 0, "transport": 13 },
       "reason": "Why this stop was chosen"
     }
-  ]
+  ],
+  "return_transport": { "mode": "jeepney", "minutes": 20, "cost": 14 }
 }
 ```
 
 | Field | Type | Description |
 |---|---|---|
 | `route_id` | string | Route identifier |
-| `total_cost` | number | Sum of all stops' costs; must not exceed `budget.amount` |
+| `total_cost` | number | All spending for the day: every stop's `est_cost` + every `stops[].transport.cost` (including start → first stop) + `return_transport.cost`. Must not exceed `budget.amount` |
 | `total_minutes` | number | Total time from the first arrival to leaving the last stop, travel included |
 | `currency` | string | `"PHP"` |
 | `summary` | string | Explanation of the whole route |
@@ -105,12 +106,13 @@ Recommends a one-day route within the budget.
 | `stops[].arrival_time` | string | Planned arrival, local time `HH:MM` |
 | `stops[].est_cost` | number | Estimated cost at this stop (food or entry) |
 | `stops[].stay_minutes` | number | Suggested time spent |
-| `stops[].transport` | object \| null | How to get here from the previous stop; `null` for the first stop |
+| `stops[].transport` | object | How to get here from the previous stop; for the first stop, from `start_location` |
 | `stops[].transport.mode` | string | `walk` \| `jeepney` \| `tricycle` \| `taxi` \| `other` |
 | `stops[].transport.minutes` | number | Travel time |
 | `stops[].transport.cost` | number | Fare; `0` for walking |
 | `stops[].cost_breakdown` | object | `food`, `entry`, `transport` (`transport` equals `transport.cost`) |
 | `stops[].reason` | string | Explanation for this stop |
+| `return_transport` | object | How to get back from the last stop to `start_location`; same fields as `stops[].transport` |
 
 ---
 
