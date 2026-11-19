@@ -316,7 +316,7 @@ def _summary(stops, query, route, lang):
     rides = {m: legs.count(m) for m in ("jeepney", "tricycle", "taxi") if legs.count(m)}
     spend, walk, fare = route["totalCost"], route["totalWalkMin"], route["totalFare"]
     if lang == "ko":
-        txt = f"{query['start']}부터 {n}곳을 도는 코스예요"
+        txt = f"{query['start']}에 출발해서 {n}곳을 도는 코스예요"
         txt += f" ({where})" if where else ""
         txt += f". 예산 {query['budgetPhp']}페소 중 {spend}페소를 써요"
         txt += f"(교통비 포함)." if fare else "."
@@ -327,7 +327,7 @@ def _summary(stops, query, route, lang):
             txt += f" 현지 소상공인 가게 {small}곳이 포함돼 있어요."
         return txt
     article = "An" if str(n)[0] == "8" or n in (11, 18) else "A"
-    txt = f"{article} {n}-stop route starting at {query['start']}"
+    txt = f"{article} {n}-stop route leaving at {query['start']}"
     txt += f" around {where}" if where else ""
     txt += f". It uses ₱{spend} of your ₱{query['budgetPhp']} budget"
     txt += " (fares included)." if fare else "."
@@ -445,6 +445,10 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
             "pace": query["pace"], "walking": query["walking"],
         }
         explained = explain_route([{"row": s["_row"]} for s in stops], traveler, lang, llm)
+        if explained["error"]:
+            # 소개·이유가 템플릿으로 나간 이유를 서버 로그에서 볼 수 있게
+            log.warning("explain fallback (intro=%s, reasons=%d/%d): %s", bool(explained["intro"]),
+                        len(explained["reasons"]), len(stops), explained["error"])
         for s in stops:
             s["reason"] = explained["reasons"].get(s["place_id"], s["reason"])
 
