@@ -130,6 +130,21 @@ class OpeningHours(BaseModel):
     sun: DayHours
 
 
+def blank_to_none(data):
+    """Trim text; an empty optional field means "not given" (form inputs send "")."""
+    if not isinstance(data, dict):
+        return data
+    out = {}
+    for k, v in data.items():
+        if isinstance(v, str):
+            v = v.strip() or None
+        elif isinstance(v, list):
+            v = [x.strip() if isinstance(x, str) else x for x in v]
+            v = [x for x in v if x not in ("", None)]
+        out[k] = v
+    return out
+
+
 class MerchantPlaceInput(BaseModel):
     """What an owner sends to register or edit a place. Field names are the DB columns."""
     name: _short(120)
@@ -154,18 +169,7 @@ class MerchantPlaceInput(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _blank_to_none(cls, data):
-        """Trim text; an empty optional field means "not given" (form inputs send "")."""
-        if not isinstance(data, dict):
-            return data
-        out = {}
-        for k, v in data.items():
-            if isinstance(v, str):
-                v = v.strip() or None
-            elif isinstance(v, list):
-                v = [x.strip() if isinstance(x, str) else x for x in v]
-                v = [x for x in v if x not in ("", None)]
-            out[k] = v
-        return out
+        return blank_to_none(data)
 
     @model_validator(mode="after")
     def _price_order(self) -> "MerchantPlaceInput":
@@ -180,3 +184,27 @@ class MerchantPlace(MerchantPlaceInput):
 
 class MerchantPlaceCreated(MerchantPlace):
     edit_key: str  # shown once; only its hash is stored
+
+
+# ── POST /api/merchant/promo ────────────────────────────────
+
+class PromoRequest(BaseModel):
+    """Form fields plus the owner's own words; nothing here is saved."""
+    name: _short(120)
+    category: PlaceCategory
+    district: _short(80) | None = None
+    signature_menu: _short(120) | None = None
+    signature_price: Peso | None = None
+    cash_only: bool = False
+    tags: list[_short(40)] = Field(default=[], max_length=10)
+    notes: _short(500)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _blank_to_none(cls, data):
+        return blank_to_none(data)
+
+
+class Promo(BaseModel):
+    description: str
+    post: str

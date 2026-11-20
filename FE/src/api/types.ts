@@ -121,6 +121,26 @@ export interface MerchantPlaceCreated extends MerchantPlace {
   edit_key: string
 }
 
+// ── POST /api/merchant/promo ──
+export interface PromoRequest {
+  name: string
+  category: PlaceCategory
+  district: string | null
+  signature_menu: string | null
+  signature_price: number | null
+  cash_only: boolean
+  tags: string[]
+  /** The owner's own words, any language, 1–500 chars. */
+  notes: string
+}
+
+export interface Promo {
+  /** English, up to 400 chars; the owner may put it in `description`. */
+  description: string
+  /** English Facebook post, up to 600 chars, ends with hashtags. */
+  post: string
+}
+
 export type ApiErrorCode =
   | 'INVALID_REQUEST'
   | 'PLACE_NOT_FOUND'
@@ -128,6 +148,8 @@ export type ApiErrorCode =
   | 'NO_RESULTS'
   | 'AI_TIMEOUT'
   | 'INVALID_EDIT_KEY'
+  | 'TOO_MANY_REQUESTS'
+  | 'AI_UNAVAILABLE'
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode
