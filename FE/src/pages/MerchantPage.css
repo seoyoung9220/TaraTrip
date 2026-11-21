@@ -242,3 +242,57 @@
   font-weight: 700;
   text-decoration: none;
 }
+
+/* Promotion helper (components/PromoHelper.tsx) */
+.m-promo-open {
+  align-self: flex-start;
+  margin-top: -8px;
+}
+
+.m-promo {
+  gap: 12px;
+  padding: 16px;
+  background: var(--soft);
+  border: 0;
+}
+
+.m-promo-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.m-promo-close {
+  height: auto;
+  padding: 4px 0;
+  border: 0;
+}
+
+/* The panel is --soft, so its buttons sit on white to stand out. */
+.m-promo .btn-soft,
+.m-promo .quick {
+  background: var(--white);
+  border: 1px solid var(--line);
+}
+
+.m-promo .btn-soft {
+  color: var(--forest);
+}
+
+.m-promo-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.m-promo-text {
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

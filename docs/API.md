@@ -14,6 +14,7 @@ All parts are developed against this spec. Any change to it needs agreement from
 | `GET /api/exchange-rate` | Hyungeun |
 | `GET /api/regions` | Seoyoung (API), Hyungeun (DB) |
 | `POST/GET/PUT /api/merchant/places` | Hyungeun |
+| `POST /api/merchant/promo` (proposal) | Hyungeun |
 
 ---
 
@@ -270,6 +271,53 @@ Errors: `400 INVALID_REQUEST` (body), `401 INVALID_EDIT_KEY` (missing or wrong k
 
 ---
 
+## POST /api/merchant/promo
+
+*(Proposal, stretch feature.)* Promotion helper for the business form. The owner writes a line or two about the place in their own words (English, Tagalog or Taglish); the AI turns it and the form fields into a short English description for travelers and a Facebook post the owner can copy. Nothing is saved: the owner reviews the text and puts it in `description` themselves. No edit key needed, so it also works before registering.
+
+### Request
+
+```json
+{
+  "name": "Aling Nena's Carinderia",
+  "category": "restaurant",
+  "district": "Binondo",
+  "signature_menu": "Adobo rice meal",
+  "signature_price": 95,
+  "cash_only": true,
+  "tags": ["lutong bahay", "silog"],
+  "notes": "lutong bahay since 1998, malapit sa simbahan, sikat ang adobo namin"
+}
+```
+
+| Field | Type | Required | Rule |
+|---|---|---|---|
+| `name` | string | yes | 1–120 chars |
+| `category` | string | yes | Same values as the place body |
+| `district`, `signature_menu` | string \| null | no | As in the place body |
+| `signature_price` | integer \| null | no | PHP |
+| `cash_only` | boolean | no | Default `false` |
+| `tags` | string[] | no | Up to 10 |
+| `notes` | string | yes | 1–500 chars, the owner's own words, any language |
+
+### Response `200 OK`
+
+```json
+{
+  "description": "A family carinderia near Binondo Church cooking lutong bahay since 1998. Try the adobo rice meal (PHP 95). Cash only.",
+  "post": "Craving real home cooking in Binondo? ... #Binondo #LutongBahay #TaraTrip"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `description` | string | English, up to 400 chars, only facts from the request. Fits the place body's `description` |
+| `post` | string | English Facebook post, up to 600 chars, ends with 2–4 hashtags |
+
+Errors: `400 INVALID_REQUEST`, `429 TOO_MANY_REQUESTS` (more than 10 requests in 10 minutes from one client), `503 AI_UNAVAILABLE` (AI not configured or its answer failed the checks; the owner can write the text themselves), `504 AI_TIMEOUT`.
+
+---
+
 ## Errors
 
 ```json
@@ -283,5 +331,7 @@ Errors: `400 INVALID_REQUEST` (body), `401 INVALID_EDIT_KEY` (missing or wrong k
 | 404 | `PLACE_NOT_FOUND` | Unknown `place_id` |
 | 422 | `BUDGET_TOO_LOW` | No route fits the budget |
 | 422 | `NO_RESULTS` | No places match the request |
+| 429 | `TOO_MANY_REQUESTS` | Too many promotion-helper requests (`POST /api/merchant/promo`) |
+| 503 | `AI_UNAVAILABLE` | The promotion helper could not write text (`POST /api/merchant/promo`) |
 | 503 | `RATE_UNAVAILABLE` | No exchange rate could be fetched yet (`GET /api/exchange-rate`) |
 | 504 | `AI_TIMEOUT` | The AI module did not respond in time |

@@ -7,6 +7,8 @@ import {
   type MerchantPlaceCreated,
   type MerchantPlaceInput,
   type PlaceDetail,
+  type Promo,
+  type PromoRequest,
   type Recommendation,
   type RecommendationRequest,
   type Regions,
@@ -117,4 +119,20 @@ export async function updateOwnPlace(placeId: string, key: string, body: Merchan
     headers: { 'X-Edit-Key': key },
     body: JSON.stringify(body),
   })
+}
+
+// Mock mode: a fixed text built from the form, so the screen can be tried without the AI.
+export function writePromo(body: PromoRequest): Promise<Promo> {
+  if (USE_MOCK) {
+    const where = body.district ? ` in ${body.district}` : ''
+    const best = body.signature_menu ? ` Try the ${body.signature_menu}.` : ''
+    return delay(
+      {
+        description: `A local favorite${where}.${best} ${body.notes}`.slice(0, 400),
+        post: `Visiting${where || ' Manila'}? Drop by ${body.name}!${best} Find us on TaraTrip. #TaraTrip #SupportLocal`,
+      },
+      1500,
+    )
+  }
+  return request('/merchant/promo', { method: 'POST', body: JSON.stringify(body) })
 }

@@ -12,6 +12,7 @@ import {
 } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
 import LocationPicker from '../components/LocationPicker.tsx'
+import PromoHelper from '../components/PromoHelper.tsx'
 import { FALLBACK_START } from '../config.ts'
 import './MerchantPage.css'
 
@@ -286,6 +287,18 @@ export default function MerchantFormPage() {
               maxLength={1000}
             />
           </Field>
+          <PromoHelper
+            facts={{
+              name: form.name.trim(),
+              category: form.category,
+              district: text(form.district),
+              signature_menu: text(form.signatureMenu),
+              signature_price: num(form.signaturePrice),
+              cash_only: form.cashOnly,
+              tags: toInput(form).tags,
+            }}
+            onUse={(d) => set('description', d)}
+          />
           <Field label="Tags" hint="Separate with commas, e.g. lutong bahay, silog, street food">
             <input className="m-input" value={form.tags} onChange={(e) => set('tags', e.target.value)} />
           </Field>
