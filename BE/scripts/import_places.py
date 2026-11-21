@@ -91,6 +91,14 @@ def to_list(v):
     return [p.strip() for p in (text(v) or "").split(",") if p.strip()]
 
 
+# Split only where a new http(s) URL starts: image CDNs (e.g. Wix) put commas inside one URL.
+PHOTO_SPLIT_RE = re.compile(r"[\s,]+(?=https?://)", re.IGNORECASE)
+
+
+def to_photos(v):
+    return [p.strip(" ,") for p in PHOTO_SPLIT_RE.split((text(v) or "").strip()) if p.strip(" ,")]
+
+
 def hours(v, key):
     if isinstance(v, datetime):  # Excel sometimes turns "08:00" into a time; we need a range
         raise RowError(f"{key}: '{v}' must be HH:MM-HH:MM or closed")
@@ -144,7 +152,7 @@ def convert(raw: dict) -> dict:
         field(d, hours, src=f"hours_{d}")
     row["opening_hours"] = {d: row.pop(d) for d in DAYS}
     row["tags"] = [t.lower() for t in to_list(raw.get("tags"))]
-    row["photos"] = to_list(raw.get("photos"))
+    row["photos"] = to_photos(raw.get("photos"))
 
     lo, hi = row["price_min"], row["price_max"]
     if lo is not None and hi is not None and lo > hi:
