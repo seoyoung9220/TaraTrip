@@ -91,6 +91,20 @@ def to_list(v):
     return [p.strip() for p in (text(v) or "").split(",") if p.strip()]
 
 
+# Photo URLs can contain commas (Wix: .../v1/fit/w_4608,h_3072,...), so only split on
+# whitespace/newlines or on a comma that starts the next URL.
+PHOTO_SPLIT_RE = re.compile(r"\s+|,\s*(?=https?://)")
+
+
+def photo_list(v):
+    urls = [u.strip().strip(",") for u in PHOTO_SPLIT_RE.split(text(v) or "")]
+    urls = [u for u in urls if u]
+    bad = [u for u in urls if not u.startswith("https://")]
+    if bad:
+        raise RowError(f"photos: '{bad[0]}' must start with https://")
+    return list(dict.fromkeys(urls))
+
+
 def hours(v, key):
     if isinstance(v, datetime):  # Excel sometimes turns "08:00" into a time; we need a range
         raise RowError(f"{key}: '{v}' must be HH:MM-HH:MM or closed")
@@ -144,7 +158,7 @@ def convert(raw: dict) -> dict:
         field(d, hours, src=f"hours_{d}")
     row["opening_hours"] = {d: row.pop(d) for d in DAYS}
     row["tags"] = [t.lower() for t in to_list(raw.get("tags"))]
-    row["photos"] = to_list(raw.get("photos"))
+    row["photos"] = photo_list(raw.get("photos"))
 
     lo, hi = row["price_min"], row["price_max"]
     if lo is not None and hi is not None and lo > hi:

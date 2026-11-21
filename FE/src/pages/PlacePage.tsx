@@ -22,6 +22,8 @@ export default function PlacePage() {
   const [place, setPlace] = useState<PlaceDetail | null>(null)
   const [failed, setFailed] = useState(false)
   const [photo, setPhoto] = useState(0)
+  // Photo links that failed to load (dead link, hotlink block, web page instead of an image).
+  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -51,7 +53,9 @@ export default function PlacePage() {
   }
 
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
-  const photos = place.photos
+  const photos = place.photos.filter((url) => !broken.has(url))
+  const shown = photos.length ? photo % photos.length : 0
+  const hidePhoto = (url: string) => setBroken((s) => new Set(s).add(url))
 
   return (
     <main className="screen place">
@@ -60,10 +64,15 @@ export default function PlacePage() {
           <button
             type="button"
             className="photo-btn"
-            onClick={() => setPhoto((i) => (i + 1) % photos.length)}
+            onClick={() => setPhoto((shown + 1) % photos.length)}
             aria-label={t.nextPhoto}
           >
-            <img src={photos[photo]} alt={t.photoAlt(place.name, photo + 1)} />
+            <img
+              key={photos[shown]}
+              src={photos[shown]}
+              alt={t.photoAlt(place.name, shown + 1)}
+              onError={() => hidePhoto(photos[shown])}
+            />
           </button>
         ) : (
           <span className="photo-empty">
@@ -75,7 +84,7 @@ export default function PlacePage() {
         </button>
         {photos.length > 0 && (
           <span className="photo-count">
-            {photo + 1} / {photos.length}
+            {shown + 1} / {photos.length}
           </span>
         )}
       </div>
