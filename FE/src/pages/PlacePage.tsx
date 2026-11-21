@@ -22,9 +22,13 @@ export default function PlacePage() {
   const [place, setPlace] = useState<PlaceDetail | null>(null)
   const [failed, setFailed] = useState(false)
   const [photo, setPhoto] = useState(0)
+  // Photo URLs that failed to load (dead link, blocked hotlink, a web page instead of an image).
+  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
+    setPhoto(0)
+    setBroken(new Set())
     getPlace(placeId, lang)
       .then((p) => !cancelled && setPlace(p))
       .catch(() => !cancelled && setFailed(true))
@@ -51,7 +55,10 @@ export default function PlacePage() {
   }
 
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
-  const photos = place.photos
+  // Skip photos that are not web URLs or failed to load; with none left, show the empty box.
+  const photos = place.photos.filter((url) => /^https?:\/\//i.test(url) && !broken.has(url))
+  const shown = photos.length ? photo % photos.length : 0
+  const dropPhoto = (url: string) => setBroken((prev) => new Set(prev).add(url))
 
   return (
     <main className="screen place">
@@ -60,10 +67,15 @@ export default function PlacePage() {
           <button
             type="button"
             className="photo-btn"
-            onClick={() => setPhoto((i) => (i + 1) % photos.length)}
+            onClick={() => setPhoto((shown + 1) % photos.length)}
             aria-label={t.nextPhoto}
           >
-            <img src={photos[photo]} alt={t.photoAlt(place.name, photo + 1)} />
+            <img
+              key={photos[shown]}
+              src={photos[shown]}
+              alt={t.photoAlt(place.name, shown + 1)}
+              onError={() => dropPhoto(photos[shown])}
+            />
           </button>
         ) : (
           <span className="photo-empty">
@@ -75,7 +87,7 @@ export default function PlacePage() {
         </button>
         {photos.length > 0 && (
           <span className="photo-count">
-            {photo + 1} / {photos.length}
+            {shown + 1} / {photos.length}
           </span>
         )}
       </div>
