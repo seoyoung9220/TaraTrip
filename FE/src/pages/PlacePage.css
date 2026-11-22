@@ -182,3 +182,7 @@
   line-height: 1.55;
   color: var(--body);
 }
+
+.hours-line {
+  display: block;
+}
