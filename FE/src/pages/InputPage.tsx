@@ -50,8 +50,13 @@ export default function InputPage() {
   const regions = useRegions()
 
   const [pickedRegion, setPickedRegion] = useState(prev?.region ?? '')
-  // A region from an earlier visit may be gone from the data; then take the first one.
-  const region = regions.includes(pickedRegion) ? pickedRegion : (regions[0] ?? REGION)
+  // A region from an earlier visit may be gone from the data; then take the default
+  // (REGION) if the data has it, else the first one.
+  const region = regions.includes(pickedRegion)
+    ? pickedRegion
+    : regions.length === 0 || regions.includes(REGION)
+      ? REGION
+      : regions[0]
 
   const [freeText, setFreeText] = useState(prev?.free_text ?? '')
   const [budget, setBudget] = useState(prev?.budget.amount ?? 1000)
