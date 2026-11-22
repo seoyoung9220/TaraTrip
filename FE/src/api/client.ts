@@ -57,6 +57,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/**
+ * Wakes the backend as soon as the app opens. Render's free plan sleeps when idle and the
+ * first request after that takes about 30 s, so this starts it during the splash instead of
+ * when the traveler asks for a route. Fire and forget: errors are ignored.
+ */
+export function warmUp(): void {
+  if (USE_MOCK) return
+  fetch('/api/health').catch(() => {})
+}
+
 export function getRecommendation(req: RecommendationRequest): Promise<Recommendation> {
   if (USE_MOCK) return mockRecommend(req)
   return request('/recommendations', { method: 'POST', body: JSON.stringify(req) })

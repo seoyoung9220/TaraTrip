@@ -1,7 +1,8 @@
-// Placeholder until the UST team settles the first region (same as the wireframes).
-
-/** Shown when GET /api/regions fails or returns nothing. */
-export const REGION = '[지역]'
+/**
+ * Default region: picked first when GET /api/regions lists it, and shown while the list
+ * loads (up to ~30 s when the backend wakes up) or when the request fails.
+ */
+export const REGION = 'Intramuros'
 
 /** Foods the traveler can add on the input screen; each one is sent to the AI as typed. */
 export const MAX_FOODS = 8
