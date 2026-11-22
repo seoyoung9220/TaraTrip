@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getPlace } from '../api/client.ts'
 import type { PlaceDetail } from '../api/types.ts'
 import Icon from '../components/Icon.tsx'
-import { duration, peso, pesoRange, won } from '../lib/format.ts'
+import { duration, formatHours, peso, pesoRange, won } from '../lib/format.ts'
 import { useLang, useT } from '../lib/i18n.ts'
 import { useExchangeRate } from '../lib/useExchangeRate.ts'
 import type { PlaceState } from './ResultPage.tsx'
@@ -135,7 +135,13 @@ export default function PlacePage() {
               <Icon name="clock" size={18} stroke={2} />
               {t.hours}
             </dt>
-            <dd>{place.opening_hours.replace('-', ' – ')}</dd>
+            <dd>
+              {formatHours(place.opening_hours, lang).map((line, i) => (
+                <span key={i} className="hours-line">
+                  {line}
+                </span>
+              ))}
+            </dd>
           </div>
           <div>
             <dt>
