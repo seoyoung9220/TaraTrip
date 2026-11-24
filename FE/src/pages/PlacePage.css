@@ -28,9 +28,16 @@
 
 .photo-empty {
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
   height: 100%;
   color: var(--photo-icon);
+}
+
+.photo-empty-text {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .photo-back {

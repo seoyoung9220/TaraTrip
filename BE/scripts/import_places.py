@@ -96,7 +96,9 @@ PHOTO_SPLIT_RE = re.compile(r"[\s,]+(?=https?://)", re.IGNORECASE)
 
 
 def to_photos(v):
-    return [p.strip(" ,") for p in PHOTO_SPLIT_RE.split((text(v) or "").strip()) if p.strip(" ,")]
+    # Notes like "no direct image links available online" are dropped, not stored as photos.
+    parts = (p.strip(" ,") for p in PHOTO_SPLIT_RE.split((text(v) or "").strip()))
+    return [p for p in parts if re.match(r"https?://\S+$", p, re.IGNORECASE)]
 
 
 def hours(v, key):

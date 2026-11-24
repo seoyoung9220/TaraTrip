@@ -18,3 +18,8 @@ def test_photos_split_on_comma_or_newline_between_urls():
 
 def test_photos_empty():
     assert to_photos(None) == [] and to_photos("  ") == []
+
+
+def test_photos_drop_text_that_is_not_a_url():
+    assert to_photos("no direct image links available online") == []
+    assert to_photos(f"see facebook, {WIX}") == [WIX]
