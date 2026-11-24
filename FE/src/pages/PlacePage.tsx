@@ -80,6 +80,7 @@ export default function PlacePage() {
         ) : (
           <span className="photo-empty">
             <Icon name="image" size={44} stroke={1.5} />
+            <span className="photo-empty-text">{t.noPhoto}</span>
           </span>
         )}
         <button type="button" className="icon-btn floating photo-back" onClick={goBack} aria-label={t.backToRoute}>
