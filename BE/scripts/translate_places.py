@@ -30,6 +30,16 @@ from core.explain import EXPLAIN_MODEL  # noqa: E402  (Llama 3.3 70B: better Kor
 from core.parse_query import call_workers_ai, extract_json  # noqa: E402
 
 HANGUL = re.compile(r"[가-힣]")
+# Llama sometimes slips in kanji/hanzi, kana or Cyrillic ("展示하는", "비노ンド", "интерес").
+FOREIGN = re.compile(r"[぀-ヿ㐀-䶿一-鿿豈-﫿Ѐ-ӿ]")
+# Endings the model gets wrong often enough to fix by rule.
+ENDING_FIXES = [
+    (re.compile(r"다르요"), "달라요"),
+    (re.compile(r"따르요"), "따라요"),
+    (re.compile(r"있요"), "있어요"),
+    (re.compile(r"적이요"), "적이에요"),
+]
+TRIES = 3
 
 PROMPT = """Translate a Philippine place listing for a Korean travel app into natural Korean.
 Rules:
@@ -38,23 +48,34 @@ Rules:
 - "signature_menu": the dish or product name as Koreans would say it. Use the common Korean word if one
   exists (e.g. "Halo-halo" -> "할로할로"), otherwise write it in Hangul by sound. Keep it short.
 - Keep place names, brand names and street names as they are.
+- Write only Hangul (plus Latin letters for names). Never use Chinese characters, Japanese kana or
+  Cyrillic, e.g. write "전시하는", not "展示하는".
 - If a field is empty, return an empty string for it.
 Answer with JSON only: {"description": "...", "signature_menu": "..."}"""
 
 
+def clean(text: str) -> str:
+    for pattern, fix in ENDING_FIXES:
+        text = pattern.sub(fix, text)
+    return text
+
+
 def translate(row: dict, account: str, token: str) -> dict:
     src = {"name": row["name"], "description": row["description"] or "", "signature_menu": row["signature_menu"] or ""}
-    reply = call_workers_ai(
-        [{"role": "system", "content": PROMPT}, {"role": "user", "content": json.dumps(src, ensure_ascii=False)}],
-        account, token, model=EXPLAIN_MODEL, max_tokens=600,
-    )
-    out = extract_json(reply)
-    result = {}
-    for key in ("description", "signature_menu"):
-        text = str(out.get(key) or "").strip()
-        # Only keep real Korean for fields that have English to translate.
-        result[f"{key}_ko"] = text if src[key] and HANGUL.search(text) else None
-    return result
+    for attempt in range(1, TRIES + 1):
+        reply = call_workers_ai(
+            [{"role": "system", "content": PROMPT}, {"role": "user", "content": json.dumps(src, ensure_ascii=False)}],
+            account, token, model=EXPLAIN_MODEL, max_tokens=600,
+        )
+        out = extract_json(reply)
+        result = {}
+        for key in ("description", "signature_menu"):
+            text = clean(str(out.get(key) or "").strip())
+            # Only keep real Korean for fields that have English to translate.
+            result[f"{key}_ko"] = text if src[key] and HANGUL.search(text) else None
+        if not any(v and FOREIGN.search(v) for v in result.values()):
+            return result
+    raise ValueError(f"non-Korean characters after {TRIES} tries: {result}")
 
 
 def main() -> None:
