@@ -14,6 +14,9 @@ So there is no CORS setup and the FE code stays the same as in local dev.
 3. It asks for the `sync: false` values:
    - `DATABASE_URL`: the line from `BE/.env` (Supabase session pooler)
    - `CF_ACCOUNT_ID`, `CF_API_TOKEN`: from Junwon. Leave empty to recommend from form fields only.
+
+   `AI_TIMEOUT_SECONDS=45` comes from `render.yaml` (code default is 20). The free plan's slow CPU
+   makes long days with free text take 20-35 s, which hit the 20 s limit as 504 `AI_TIMEOUT`.
 4. Wait for the deploy, then open `https://<service>.onrender.com/api/health` → `{"status":"ok"}`.
    Also try `/api/regions` (data from Supabase) and `/api/exchange-rate`.
 5. If the URL is not `https://taratrip-api.onrender.com` (name already taken), change

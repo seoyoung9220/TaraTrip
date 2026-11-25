@@ -18,3 +18,5 @@ services:
         sync: false
       - key: CF_API_TOKEN
         sync: false
+      - key: AI_TIMEOUT_SECONDS  # free-plan CPU: heavy routes take 20-35 s here (6-9 s locally)
+        value: "45"
