@@ -14,6 +14,7 @@ TaraTrip 동선 추천 알고리즘 (파이썬 버전, planRoute.js를 그대로
   → 이 값을 최소화 = 이동은 적게, 점수 높은 곳은 최대한 포함
 """
 import math
+import time
 
 from .utils import js_round, to_min, to_hhmm
 
@@ -29,6 +30,7 @@ DEFAULTS = {
     "stayFactor": 1,         # 체류시간 배율 (여유롭게 1.5, 빡빡하게 0.8)
     "maxLegMin": INF,        # 한 번에 걸을 수 있는 최대 시간(분). 걷기 싫은 사람은 12분 정도
     "iterations": 200,       # 흔들기 반복 횟수
+    "timeLimitSec": None,    # 흔들기 시간 상한(초). 넘으면 그때까지 찾은 가장 좋은 경로로 끝냄 (느린 서버용)
     # 코스 길이·식사 제한 (기본은 제한 없음 = JS 버전과 같은 동작)
     "maxStops": INF,         # 하루 최대 장소 수
     "maxMeals": INF,         # 먹는 곳(장소의 isMeal=True) 최대 개수
@@ -36,6 +38,8 @@ DEFAULTS = {
     # 식사 시간 (None = 아무 때나, JS 버전과 같은 동작). 쓰려면 MEAL_TIMES_EXAMPLE 같은 dict를 넘김
     #   장소의 mealKind: "meal"(식당) / "breakfast"(아침도 되는 식당) / "bar" / "snack"(카페·먹거리 시장, 시간 제한 없음)
     "mealTimes": None,
+    # 같은 그룹(예: 고른 음식 "halo-halo"가 들어간 곳) 최대 개수. 장소의 groups 목록으로 판단 (None = 제한 없음)
+    "maxPerGroup": None,
     # 이동수단 (None = 전부 도보, JS 버전과 같은 동작). 쓰려면 TRANSPORT_EXAMPLE 같은 dict를 넘김
     "transport": None,
 }
@@ -51,13 +55,17 @@ TRANSPORT_EXAMPLE = {
 }
 
 
-# 식사 시간 예시 (recommend.py가 넘김). 식당은 점심·저녁 시간에만 들어가고, 식사끼리는 gapMin 이상 떨어뜨림
+# 식사 시간 예시 (recommend.py가 넘김). 식당은 점심·저녁 시간에만 들어가고, 식사끼리는 간격을 둠
+# 간격은 그 사이에 얼마나 움직였는지로 정함: 걷거나 활동적인 곳(공원·요새·시장 등)에 있던 시간만큼
+# gapMaxMin(6시간)에서 줄어들고, 아무리 많이 움직여도 gapMin(4시간)보다 짧아지지 않음
+#   예) 14시 점심 → 많이 걸었으면 18시부터, 카페·박물관처럼 앉아만 있었으면 20시부터 저녁
 MEAL_TIMES_EXAMPLE = {
     "breakfast": ["07:00", "10:30"],  # mealKind "breakfast"만 (실로그·다이너 등)
     "lunch": ["11:00", "15:00"],      # 들어가는 시각 기준
     "dinner": ["17:00", "20:30"],
     "barFrom": "16:00",               # 바는 이 시각부터
-    "gapMin": 240,                    # 식사(식당·바) 시작 시각끼리 최소 간격
+    "gapMin": 240,                    # 식사(식당·바) 시작 시각끼리 최소 간격 (많이 움직였을 때)
+    "gapMaxMin": 360,                 # 거의 안 움직였을 때 간격
 }
 
 
@@ -144,13 +152,17 @@ def plan_route(input):
             "bar": [(to_min(mt["barFrom"]), 48 * 60)],
         }
 
-    def visit_start(p, t, last_meal):
+    def meal_gap(active):
+        """마지막 식사 뒤 움직인 시간(분)에 따라 다음 식사까지 간격"""
+        return max(mt["gapMin"], mt.get("gapMaxMin", mt["gapMin"]) - active)
+
+    def visit_start(p, t, last_meal, active=0):
         """t에 도착했을 때 실제로 들어가는 시각 (오픈·식사 시간까지 기다림). 갈 수 없으면 None"""
         s = max(t, p["open"])
         kind = p.get("mealKind")
         if mt and kind in WINDOWS:
             if last_meal is not None:
-                s = max(s, last_meal + mt["gapMin"])  # 점심 먹고 바로 또 식당 금지
+                s = max(s, last_meal + meal_gap(active))  # 점심 먹고 바로 또 식당 금지
             for ws, we in WINDOWS[kind]:
                 if max(s, ws) <= we:
                     s = max(s, ws)
@@ -177,6 +189,8 @@ def plan_route(input):
         t, prev, travel, cost = START, DEPOT, 0, 0
         meals = meals_in_row = 0
         last_meal = None                          # 마지막 식사(식당·바) 시작 시각
+        active = 0                                # 마지막 식사 뒤 걷거나 활동한 시간(분)
+        groups = {}                               # 그룹별 방문 수
         for i in route:
             p = P[i]
             if p.get("isMeal"):                   # 먹는 곳 개수·연속 제한
@@ -186,18 +200,27 @@ def plan_route(input):
                     return None
             else:
                 meals_in_row = 0
+            if opt["maxPerGroup"]:                # 같은 음식만 두 번 먹으러 가지 않게
+                for g in p.get("groups") or ():
+                    groups[g] = groups.get(g, 0) + 1
+                    if groups[g] > opt["maxPerGroup"]:
+                        return None
             if too_far_on_foot(prev, i):        # 한 번에 너무 멀리 걷는 구간 금지
                 return None
             t += T[prev][i]
             travel += leg_cost(prev, i)
             cost += F[prev][i]                  # 교통비도 예산에 포함
-            s = visit_start(p, t, last_meal)    # 오픈·식사 시간 전이면 기다림
+            if M[prev][i] == "walk":
+                active += T[prev][i]
+            s = visit_start(p, t, last_meal, active)  # 오픈·식사 시간 전이면 기다림
             if s is None:
                 return None
             travel += (s - t) * opt["waitWeight"]
             t = s
             if p.get("mealKind") in ("meal", "breakfast", "bar"):
-                last_meal = t
+                last_meal, active = t, 0
+            elif p.get("active"):
+                active += p["stayMin"]
             t += p["stayMin"]
             cost += p["costPhp"]
             if cost > budget:                   # 예산 초과
@@ -212,16 +235,24 @@ def plan_route(input):
             return None
         return travel
 
+    memo = {}  # 같은 경로를 여러 번 평가하므로 결과를 기억해 둠 (결과는 그대로, 속도만 빨라짐)
+
     def objective(route):
+        key = tuple(route)
+        if key in memo:
+            return memo[key]
         travel = evaluate(route)
         if travel is None:
-            return INF
-        in_route = set(route)
-        penalty = 0
-        for i in range(n):
-            if i not in in_route:
-                penalty += P[i]["value"] * opt["penaltyPerPoint"]
-        return travel + penalty
+            o = INF
+        else:
+            in_route = set(route)
+            penalty = 0
+            for i in range(n):
+                if i not in in_route:
+                    penalty += P[i]["value"] * opt["penaltyPerPoint"]
+            o = travel + penalty
+        memo[key] = o
+        return o
 
     # 1) 삽입: 가장 이득이 큰 (장소, 위치)를 반복해서 추가
     def insert_greedy(route, banned=frozenset()):
@@ -301,10 +332,13 @@ def plan_route(input):
         seed = (seed * 1103515245.0 + 12345.0) % 2147483648.0
         return seed / 2147483648.0
 
+    started = time.monotonic()
     best_route = local_search(insert_greedy([]))
     best_obj = objective(best_route)
     it = 0
     while it < opt["iterations"] and len(best_route) > 0:
+        if opt["timeLimitSec"] and time.monotonic() - started > opt["timeLimitSec"]:
+            break  # 느린 서버: 시간 상한까지 찾은 가장 좋은 경로로 끝냄
         k = 1 + math.floor(rand() * min(3, len(best_route)))  # 1~3곳 빼기
         r = list(best_route)
         removed = set()
@@ -321,17 +355,20 @@ def plan_route(input):
     # 결과 만들기
     stops = []
     t, prev, total_cost, total_walk, total_fare = START, DEPOT, 0, 0, 0
-    last_meal = None
+    last_meal, active = None, 0
     for i in route:
         p = P[i]
         move = T[prev][i]
         t += move
         if M[prev][i] == "walk":
             total_walk += move
+            active += move
         total_fare += F[prev][i]
-        t = visit_start(p, t, last_meal)
+        t = visit_start(p, t, last_meal, active)
         if p.get("mealKind") in ("meal", "breakfast", "bar"):
-            last_meal = t
+            last_meal, active = t, 0
+        elif p.get("active"):
+            active += p["stayMin"]
         stops.append({
             "name": p["name"], "arrive": to_hhmm(t), "walkMin": move,
             "mode": M[prev][i], "fare": F[prev][i],
