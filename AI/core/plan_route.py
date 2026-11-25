@@ -145,33 +145,46 @@ def plan_route(input):
 
     mt = opt["mealTimes"]
     if mt:
-        win = {k: (to_min(mt[k][0]), to_min(mt[k][1])) for k in ("breakfast", "lunch", "dinner")}
+        win = {k: (k, to_min(mt[k][0]), to_min(mt[k][1])) for k in ("breakfast", "lunch", "dinner")}
+        only = set(mt.get("only") or ("breakfast", "lunch", "dinner"))  # "점심 저녁만" 같은 요청
         WINDOWS = {
-            "meal": [win["lunch"], win["dinner"]],
-            "breakfast": [win["breakfast"], win["lunch"], win["dinner"]],
-            "bar": [(to_min(mt["barFrom"]), 48 * 60)],
+            "meal": [win[k] for k in ("lunch", "dinner") if k in only],
+            "breakfast": [win[k] for k in ("breakfast", "lunch", "dinner") if k in only],
+            "bar": [("bar", to_min(mt["barFrom"]), 48 * 60)],
         }
 
     def meal_gap(active):
         """마지막 식사 뒤 움직인 시간(분)에 따라 다음 식사까지 간격"""
         return max(mt["gapMin"], mt.get("gapMaxMin", mt["gapMin"]) - active)
 
-    def visit_start(p, t, last_meal, active=0):
-        """t에 도착했을 때 실제로 들어가는 시각 (오픈·식사 시간까지 기다림). 갈 수 없으면 None"""
+    def visit_start(p, t, eat):
+        """t에 도착했을 때 실제로 들어가는 시각 (오픈·식사 시간까지 기다림). 갈 수 없으면 None
+        eat: {"last": 마지막 식사 시각, "active": 그 뒤 움직인 분, "used": 이미 먹은 때(점심·저녁…)}
+        식사는 때마다 한 번만 (점심 두 번 금지)"""
         s = max(t, p["open"])
         kind = p.get("mealKind")
+        slot = None
+        if mt and mt.get("only") and kind == "snack":
+            return None  # "점심 저녁만" 먹겠다고 했으면 카페·간식은 따로 넣지 않음
         if mt and kind in WINDOWS:
-            if last_meal is not None:
-                s = max(s, last_meal + meal_gap(active))  # 점심 먹고 바로 또 식당 금지
-            for ws, we in WINDOWS[kind]:
-                if max(s, ws) <= we:
-                    s = max(s, ws)
+            if eat["last"] is not None:
+                s = max(s, eat["last"] + meal_gap(eat["active"]))  # 점심 먹고 바로 또 식당 금지
+            for name, ws, we in WINDOWS[kind]:
+                if name not in eat["used"] and max(s, ws) <= we:
+                    s, slot = max(s, ws), name
                     break
             else:
                 return None
         if s + p["stayMin"] > p["close"]:   # 마감 전에 못 끝내면 불가
             return None
-        return s
+        return s, slot
+
+    def after_visit(p, t, slot, eat):
+        if slot:
+            eat["last"], eat["active"] = t, 0
+            eat["used"] = eat["used"] | {slot}
+        elif p.get("active"):
+            eat["active"] += p["stayMin"]
 
     def leg_cost(i, j):
         """목표 함수에 더할 이동 비용: 걷는 분은 travelWeight만큼 무겁게, 타는 분은 그대로"""
@@ -188,8 +201,7 @@ def plan_route(input):
             return None
         t, prev, travel, cost = START, DEPOT, 0, 0
         meals = meals_in_row = 0
-        last_meal = None                          # 마지막 식사(식당·바) 시작 시각
-        active = 0                                # 마지막 식사 뒤 걷거나 활동한 시간(분)
+        eat = {"last": None, "active": 0, "used": frozenset()}  # 식사 시각·그 뒤 활동량·먹은 때
         groups = {}                               # 그룹별 방문 수
         for i in route:
             p = P[i]
@@ -211,16 +223,14 @@ def plan_route(input):
             travel += leg_cost(prev, i)
             cost += F[prev][i]                  # 교통비도 예산에 포함
             if M[prev][i] == "walk":
-                active += T[prev][i]
-            s = visit_start(p, t, last_meal, active)  # 오픈·식사 시간 전이면 기다림
-            if s is None:
+                eat["active"] += T[prev][i]
+            v = visit_start(p, t, eat)          # 오픈·식사 시간 전이면 기다림
+            if v is None:
                 return None
+            s, slot = v
             travel += (s - t) * opt["waitWeight"]
             t = s
-            if p.get("mealKind") in ("meal", "breakfast", "bar"):
-                last_meal, active = t, 0
-            elif p.get("active"):
-                active += p["stayMin"]
+            after_visit(p, t, slot, eat)
             t += p["stayMin"]
             cost += p["costPhp"]
             if cost > budget:                   # 예산 초과
@@ -355,20 +365,17 @@ def plan_route(input):
     # 결과 만들기
     stops = []
     t, prev, total_cost, total_walk, total_fare = START, DEPOT, 0, 0, 0
-    last_meal, active = None, 0
+    eat = {"last": None, "active": 0, "used": frozenset()}
     for i in route:
         p = P[i]
         move = T[prev][i]
         t += move
         if M[prev][i] == "walk":
             total_walk += move
-            active += move
+            eat["active"] += move
         total_fare += F[prev][i]
-        t = visit_start(p, t, last_meal, active)
-        if p.get("mealKind") in ("meal", "breakfast", "bar"):
-            last_meal, active = t, 0
-        elif p.get("active"):
-            active += p["stayMin"]
+        t, slot = visit_start(p, t, eat)
+        after_visit(p, t, slot, eat)
         stops.append({
             "name": p["name"], "arrive": to_hhmm(t), "walkMin": move,
             "mode": M[prev][i], "fare": F[prev][i],
