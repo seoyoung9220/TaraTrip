@@ -28,6 +28,10 @@ KO_ENDING = re.compile(r"요[.!~]?$")  # 해요체로 끝나야 함
 META = re.compile(r"여행자|이 사람|traveler|the user", re.I)
 # 가격·시간·거리는 코드가 이미 정확하게 보여주니까 LLM 문장에는 못 쓰게 함
 # 자주 틀리는 맞춤법은 고쳐서 씀: "선택이예요" → "선택이에요", "되요" → "돼요"
+KO_NAME_FIX = {"인터무로스": "인트라무로스", "인트라무로즈": "인트라무로스", "인뜨라무로스": "인트라무로스",
+               "빈둥동": "비논도", "빈온도": "비논도", "비논동": "비논도", "에르미따": "에르미타", "삼팔럭": "삼팔록"}
+
+
 def _fix_ko(text):
     def iyeyo(m):
         ch = m.group(1)
@@ -35,6 +39,8 @@ def _fix_ko(text):
         return ch + ("이에요" if has_batchim else "예요")
     text = re.sub(r"([가-힣])이예요", iyeyo, text)
     text = re.sub(r"아니예요", "아니에요", text)
+    for wrong, right in KO_NAME_FIX.items():  # 작은 모델이 자주 틀리는 지역 이름
+        text = text.replace(wrong, right)
     return text.replace("되요", "돼요")
 
 
@@ -50,6 +56,7 @@ NUMBERS = re.compile(r"[₱$]|페소|peso|php|\d+\s*(분|시간|시|km|원|min|h
 LANG_RULE = {
     "ko": """Korean only, in friendly polite 해요체 (every sentence ends with ~요). Use Hangul; English only for proper nouns.
 For food or item names use the common Korean word, or keep the original English word if unsure (never invent odd transliterations).
+Write Manila district names exactly like this, or keep them in English: Intramuros=인트라무로스, Binondo=비논도, Ermita=에르미타, Sampaloc=삼팔록, Quiapo=키아포, Malate=말라테, Tondo=톤도, Manila=마닐라.
 The examples below are about unrelated places. Copy only their tone and length, never their content:
   intro: "바닷가 산책과 동네 빵집을 천천히 즐기는 하루예요."
   reason: "도자기를 좋아하신다면 장인이 물레 돌리는 모습을 꼭 구경해 보세요."

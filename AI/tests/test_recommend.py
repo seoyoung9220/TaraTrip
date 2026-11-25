@@ -114,12 +114,12 @@ def test_language():
 
 def test_course_length_and_meals():
     """코스가 너무 길거나 먹는 곳만 연달아 나오지 않는지 (서영 님 피드백)"""
-    from recommend import MAX_STOPS, MAX_MEALS, MAX_MEALS_FOOD_LOVER, MAX_MEALS_IN_ROW
+    from recommend import MAX_STOPS, MAX_MEALS, MAX_MEALS_IN_ROW
     cat = {r["place_id"]: r["category"] for r in ROWS}
-    for req, max_meals in [
+    for req, max_meals in [  # 음식을 골라도 관광객 기본값(MAX_MEALS) 그대로
         ({**REQ, "foods": [], "attractions": []}, MAX_MEALS),
-        (REQ, MAX_MEALS_FOOD_LOVER),  # foods가 있으면 먹거리 위주
-        ({**REQ, "budget": {"amount": 5000, "currency": "PHP"}}, MAX_MEALS_FOOD_LOVER),
+        (REQ, MAX_MEALS),
+        ({**REQ, "budget": {"amount": 5000, "currency": "PHP"}}, MAX_MEALS),
     ]:
         res = recommend(req, ROWS, travel_date=TUE)
         check_shape(res, req["budget"]["amount"])
@@ -252,7 +252,7 @@ def test_llm_explanations():
     res = recommend(REQ, ROWS, travel_date=TUE, call_llm=_explain_llm(mixed))
     tmpl = {s["place_id"]: s["reason"] for s in base["stops"]}
     stops = res["stops"]
-    assert len(stops) > len(BAD) + 1
+    assert len(stops) >= len(BAD) + 1
     for k, s in enumerate(stops):
         if len(BAD) <= k < len(stops) - 1:
             assert s["reason"] == "골목 산책하기 좋은 곳이에요"
@@ -419,6 +419,34 @@ def test_meal_gap_follows_activity():
     park = dinner_gap(place(3, "Big Park", "attraction", ["park", "outdoor"], 180, 0.0008))
     museum = dinner_gap(place(4, "Quiet Museum", "attraction", ["museum"], 180, 0.0008))
     assert 240 <= park < museum and museum >= 340, (park, museum)
+
+
+def test_meal_request_in_free_text():
+    """"음식점은 점심 저녁 2군데만" → 먹는 곳 2곳, 점심·저녁 때 한 번씩 (아침·간식 없음)"""
+    from recommend import meal_request, meal_kind, to_min as tm
+    assert meal_request("음식점은 점심 저녁 이렇게 2군데만 갈래") == {"max": 2, "only": ["lunch", "dinner"]}
+    assert meal_request("점심 먹고 출발해서 맛집 투어") == {"max": None, "only": None}
+    assert meal_request("관광지 3곳 보고 맛집도 가고 싶어") == {"max": None, "only": None}
+    near = REQ["start_location"]
+    def eat(i, name, tags, dlat):
+        return {**ROWS[0], "place_id": f"M-{i}", "name": name, "category": "restaurant", "tags": tags,
+                "signature_menu": "", "description": "", "lat": near["lat"] + dlat, "lng": near["lng"],
+                "price_min": 100, "price_max": 100, "entry_fee": 0, "avg_stay_minutes": 45, "local_score": 9,
+                "opening_hours": {d: "07:00-22:00" for d in DAYS}}
+    rows = [eat(1, "Silog Diner", ["silog", "breakfast"], 0.0005), eat(2, "Noodle House", ["noodles"], 0.001),
+            eat(3, "Grill House", ["grill"], 0.0015), eat(4, "Bean Cafe", ["coffee"], 0.002),
+            eat(5, "Pancit Place", ["pancit"], 0.0025)]
+    rows += [{**ROWS[0], "place_id": f"A-{i}", "name": f"Sight {i}", "category": "attraction", "tags": ["history"],
+              "lat": near["lat"] + 0.003 + i * 0.0005, "lng": near["lng"], "entry_fee": 0, "avg_stay_minutes": 60,
+              "local_score": 8, "opening_hours": {d: "08:00-22:00" for d in DAYS}} for i in range(5)]
+    res = recommend({**REQ, "foods": [], "start_time": "08:00", "end_time": "21:00",
+                     "free_text": "음식점은 점심 저녁 이렇게 2군데만 갈래",
+                     "budget": {"amount": 3000, "currency": "PHP"}}, rows, travel_date=TUE)
+    eats = [(tm(s["arrival_time"]), s["name"]) for s in res["stops"] if meal_kind(next(r for r in rows if r["name"] == s["name"]))]
+    assert len(eats) <= 2, eats
+    for t, _ in eats:
+        assert tm("11:00") <= t <= tm("15:00") or tm("17:00") <= t <= tm("20:30"), eats
+    assert not (len(eats) == 2 and eats[1][0] <= tm("15:00")), eats  # 점심 두 번 금지
 
 
 def test_explain_cleanup():

@@ -64,10 +64,14 @@ DEFAULT_LANG = "ko"                 # 설명 문장 기본 언어 (앱 화면이
 
 # 코스 길이·식사 제한 (UST 피드백 보고 조정)
 DEFAULT_START, DEFAULT_END = "10:00", "16:00"        # 시간 입력이 없을 때 (docs/API.md 기본값)
-MAX_STOPS = {"relaxed": 4, "normal": 5, "packed": 6}  # 페이스별 최대 장소 수 (BASE_HOURS 기준)
+MAX_STOPS = {"relaxed": 3, "normal": 4, "packed": 6}  # 페이스별 최대 장소 수 (BASE_HOURS 기준). 기본은 여유로운 관광객
 BASE_HOURS = 6                                        # MAX_STOPS가 기준으로 삼는 여행 시간
-MAX_STOPS_EXTRA = 2                                   # 시간이 아무리 길어도 MAX_STOPS보다 이만큼까지만 더
-LONG_DAY_HOURS = 8                                    # 이 시간 이상이면 먹는 곳 1곳 더 (점심 + 저녁)
+MAX_STOPS_EXTRA = 1                                   # 시간이 아무리 길어도 MAX_STOPS보다 이만큼까지만 더
+# 머무는 시간 (여유롭게: 밥 1시간, 카페 1시간 15분, 관광지는 데이터의 1.5배까지)
+STAY_MEAL_MIN = 60
+STAY_CAFE_MIN = 75
+STAY_ATTRACTION_FACTOR = 1.5
+STAY_ATTRACTION_MAX = 180
 
 # 이동수단·요금 (메트로 마닐라, 2026년 기준 추정값. 발표 전에 최신 요금표로 한 번 확인하세요)
 #   지프니: 2026년 9월 인상 후 전통 지프니 최저요금 14페소(첫 4km). km당 추가요금은 추정
@@ -93,8 +97,7 @@ KEYWORD_BONUS = 8
 SMALL_BIZ_MATCH, SMALL_BIZ_OTHER = 5, 2
 MODE_KO = {"walk": "도보", "jeepney": "지프니", "tricycle": "트라이시클", "taxi": "택시", "other": "기타"}
 MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"이 될 수 있는 DB 카테고리 (카페·빵집도 restaurant)
-MAX_MEALS = 2                                         # 먹는 곳 최대 개수
-MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 먹거리 위주로 요청했을 때
+MAX_MEALS = 3                                         # 먹는 곳 최대 개수 (점심·저녁 + 카페 한 번). "현지 음식"을 말해도 그대로
 MAX_MEALS_IN_ROW = 2                                  # 먹는 곳 최대 연속 (밥 → 카페까지 OK)
 # 식사 시간: 식당은 점심·저녁 시간에만, 바는 오후 늦게부터, 식사끼리는 4시간 이상 간격 (카페·먹거리 시장은 아무 때나)
 MEAL_TIMES = {"breakfast": ["07:00", "10:30"], "lunch": ["11:00", "15:00"], "dinner": ["17:00", "20:30"],
@@ -110,6 +113,7 @@ BAR_WORDS = ["bar", "pub", "craft beer", "cocktail", "nightlife"]
 SNACK_WORDS = ["cafe", "café", "coffee", "dessert", "bakery", "bakeries", "tea"]
 BREAKFAST_WORDS = ["breakfast", "silog", "diner", "brunch"]
 FOOD_MARKET_WORDS = ["food", "restaurant", "bakeries", "eat"]
+TAKEAWAY_WORDS = ["takeaway", "take-out", "takeout", "street food", "bakery", "snack"]
 
 
 # ─────────────────────────────────────────────
@@ -168,11 +172,30 @@ def meal_kind(row):
     if _has_word(name, BAR_WORDS) or _has_word(tags, BAR_WORDS):
         return "bar"
     restaurant = _has_word(name + " " + tags, ["restaurant", "dining", "eatery", "kitchen", "food"])
+    sit_down = _has_word(name + " " + tags, ["restaurant", "dining", "eatery", "kitchen", "carinderia", "turo-turo"])
+    if not sit_down and _has_word(tags, TAKEAWAY_WORDS):
+        return "snack"  # 포장·길거리 간식 가게 (시오파오 등)는 식사가 아니라 간식
     if not restaurant and (_has_word(tags, SNACK_WORDS) or _has_word(name, SNACK_WORDS)):
         return "snack"
     if _has_word(tags, BREAKFAST_WORDS) or _has_word(name, BREAKFAST_WORDS):
         return "breakfast"
     return "meal"
+
+
+def _stay(row):
+    """머무는 시간: 여유로운 관광객 기준. 밥 1시간, 카페 1시간 15분, 관광지는 데이터의 1.5배(최대 3시간)
+    포장 가게처럼 데이터가 아주 짧으면(20분 이하) 그대로"""
+    data = row.get("avg_stay_minutes") or DEFAULT_STAY.get(row.get("category"), 40)
+    kind = meal_kind(row)
+    if data <= 20:
+        return data
+    if kind in ("meal", "breakfast", "bar"):
+        return max(data, STAY_MEAL_MIN)
+    if kind == "snack" and row.get("category") == "restaurant":
+        return max(data, STAY_CAFE_MIN)
+    if row.get("category") == "attraction":
+        return min(STAY_ATTRACTION_MAX, max(45, js_round(data * STAY_ATTRACTION_FACTOR)))
+    return data
 
 
 def to_internal_place(row, weekday):
@@ -189,7 +212,7 @@ def to_internal_place(row, weekday):
         "category": _internal_tag(row),
         "lat": row["lat"], "lng": row["lng"],
         "opens": hours[0], "closes": hours[1],
-        "stayMin": row.get("avg_stay_minutes") or DEFAULT_STAY.get(row.get("category"), 40),
+        "stayMin": _stay(row),
         "costPhp": food + entry,
         "smallBiz": bool(row.get("is_small_business")),
         "isMeal": meal_kind(row) is not None,
@@ -323,14 +346,47 @@ def _penalize_far(plan_input, query, start_location):
         p["score"] = max(0, p["score"] - FAR_PENALTY_PER_KM * max(0, km - FREE_RADIUS_KM))  # 너무 멀면 0점 = 안 감
 
 
+_NUM = {"한": 1, "하나": 1, "두": 2, "둘": 2, "세": 3, "셋": 3, "네": 4, "넷": 4,
+        "one": 1, "two": 2, "three": 3, "four": 4}
+_EAT_WORDS = r"(음식점|식당|밥집|밥|식사|맛집|먹는\s*곳|끼니|restaurants?|meals?|places? to eat)"
+_SLOT_WORDS = {"breakfast": ["아침", "브런치", "breakfast", "brunch"],
+               "lunch": ["점심", "lunch"], "dinner": ["저녁", "dinner"]}
+
+
+def meal_request(text):
+    """자유 문장에서 식사 요청 읽기: "음식점은 점심 저녁 2군데만" → {"max": 2, "only": ["lunch", "dinner"]}
+    숫자나 "~만/only"처럼 분명히 제한한 경우만 읽음 ("점심 먹고 출발" 같은 시간 표현은 무시)"""
+    t = (text or "").lower()
+    if not re.search(_EAT_WORDS, t):
+        return {"max": None, "only": None}
+    n = None
+    num = r"(\d+|한|하나|두|둘|세|셋|네|넷)\s*(?:군데|곳|번|끼|개)"
+    m = re.search(_EAT_WORDS + r"[^.!?,]{0,15}?" + num, t) or re.search(num + r"\s*(?:의\s*)?" + _EAT_WORDS, t) or \
+        re.search(r"\b(\d+|one|two|three|four)\s+(?:restaurants?|meals?|places? to eat)", t)
+    if m:
+        v = next(g for g in m.groups() if g and (g.isdigit() or g in _NUM))
+        n = int(v) if v.isdigit() else _NUM.get(v)
+    limited = n is not None or re.search(r"만\s*(갈|가|먹|할|$)|만\s*[.!~]|\bonly\b", t)
+    slots = [k for k, ws in _SLOT_WORDS.items() if any(w in t for w in ws)]
+    only = slots if limited and slots else None
+    if n is None and only:
+        n = len(only)  # "점심 저녁만" → 2곳
+    return {"max": n if n and 1 <= n <= 6 else None, "only": only}
+
+
 def _limits(query, req):
     """여행 시간에 맞춘 장소 수·식사 제한"""
     hours = (to_min(query["end"]) - to_min(query["start"])) / 60
     base = MAX_STOPS.get(query["pace"], MAX_STOPS["normal"])
     max_stops = min(base + MAX_STOPS_EXTRA, max(1, js_round(base * hours / BASE_HOURS)))
-    food_lover = bool(req.get("foods")) or any(t in ("food", "cafe") for t in query["tags"])
-    max_meals = (MAX_MEALS_FOOD_LOVER if food_lover else MAX_MEALS) + (1 if hours >= LONG_DAY_HOURS else 0)
-    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW, "mealTimes": MEAL_TIMES,
+    max_meals = MAX_MEALS  # 관광객 기본값. "현지 음식" 같은 말로 바꾸지 않음 (사용자가 개수를 직접 말하면 아래에서)
+    meal_times = MEAL_TIMES
+    asked = meal_request(req.get("free_text"))  # 사용자가 식사 수·때를 직접 말했으면 그대로 (카페 포함 개수)
+    if asked["max"]:
+        max_meals = asked["max"]
+    if asked["only"]:
+        meal_times = {**MEAL_TIMES, "only": asked["only"]}
+    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW, "mealTimes": meal_times,
             "maxPerGroup": MAX_PER_FOOD}
 
 
