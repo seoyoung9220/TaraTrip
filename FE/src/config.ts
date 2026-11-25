@@ -6,6 +6,8 @@ export const REGION = 'Intramuros'
 
 /** Foods the traveler can add on the input screen; each one is sent to the AI as typed. */
 export const MAX_FOODS = 8
+// Must-see places per trip; more than this rarely fits in one day.
+export const MAX_MUST_VISIT = 5
 export const MAX_FOOD_LENGTH = 40
 
 /** Used when location permission is denied or unavailable. Matches the mock route area. */

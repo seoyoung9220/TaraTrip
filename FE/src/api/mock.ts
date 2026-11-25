@@ -5,6 +5,7 @@ import type {
   PlaceDetail,
   Recommendation,
   RecommendationRequest,
+  PlaceList,
   Regions,
   Stop,
   Transport,
@@ -247,3 +248,9 @@ export const mockExchangeRate: ExchangeRate = {
 
 // Same districts as BE/dev/sample_places.py.
 export const mockRegions: Regions = { regions: ['Binondo', 'Intramuros'] }
+
+export const mockPlaceList: PlaceList = {
+  places: [...new Map(MOCK_POOL.map((s) => [s.place_id, s])).values()]
+    .map((s) => ({ place_id: s.place_id, name: s.name, category: s.category, district: null }))
+    .sort((a, b) => a.name.localeCompare(b.name)),
+}

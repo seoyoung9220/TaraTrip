@@ -75,6 +75,18 @@ export interface PlaceDetail extends LatLng {
   photos: string[]
 }
 
+/** GET /api/places: one row per place, for the must-see search. */
+export interface PlaceSummary {
+  place_id: string
+  name: string
+  category: PlaceCategory
+  district: string | null
+}
+
+export interface PlaceList {
+  places: PlaceSummary[]
+}
+
 export interface Regions {
   regions: string[]
 }

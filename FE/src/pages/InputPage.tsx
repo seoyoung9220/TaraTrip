@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LatLng, RecommendationRequest } from '../api/types.ts'
 import AddressSearch from '../components/AddressSearch.tsx'
+import MustVisitSearch from '../components/MustVisitSearch.tsx'
 import Icon from '../components/Icon.tsx'
 import LocationPicker from '../components/LocationPicker.tsx'
 import { BUDGET_STEPS, FALLBACK_START, MAX_FOOD_LENGTH, MAX_FOODS, REGION } from '../config.ts'
@@ -62,6 +63,7 @@ export default function InputPage() {
   const [budget, setBudget] = useState(prev?.budget.amount ?? 1000)
   const [foods, setFoods] = useState<string[]>(prev?.foods ?? [])
   const [foodDraft, setFoodDraft] = useState('')
+  const [mustVisit, setMustVisit] = useState<string[]>(prev?.attractions ?? [])
   const [start, setStart] = useState<LatLng>(prev?.start_location ?? FALLBACK_START)
   const [startState, setStartState] = useState<StartState>(prev?.start_location ? 'picked' : 'default')
   const [startName, setStartName] = useState('') // the address search result picked, for the status line
@@ -165,7 +167,7 @@ export default function InputPage() {
       region,
       budget: { amount: budget, currency: 'PHP' },
       foods: withDraft(foods, foodDraft), // a food typed but not added yet still counts
-      attractions: prev?.attractions ?? [],
+      attractions: mustVisit,
       start_location: start,
       ...(end ? { end_location: end } : {}),
       travel_date: date,
@@ -355,11 +357,7 @@ export default function InputPage() {
 
         <section className="field">
           <h2 className="label">{t.mustVisitLabel}</h2>
-          <button type="button" className="search-field" disabled title={t.searchSoonTitle}>
-            <Icon name="search" size={18} />
-            {t.searchAttractions}
-            <span className="soon">{t.soon}</span>
-          </button>
+          <MustVisitSearch value={mustVisit} onChange={setMustVisit} />
         </section>
 
         <section className="field">
