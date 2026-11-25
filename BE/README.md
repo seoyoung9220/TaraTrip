@@ -14,7 +14,7 @@ python -m venv .venv
 # BE/.env needs DATABASE_URL (ask Hyungeun)
 # Optional, for free_text parsing and taste matching (ask Junwon):
 #   CF_ACCOUNT_ID=...  CF_API_TOKEN=...   (without them, routes use the form fields only)
-#   AI_TIMEOUT_SECONDS=20                 (default 20; past this → 504 AI_TIMEOUT)
+#   AI_TIMEOUT_SECONDS=20                 (default 20; past this → 504 AI_TIMEOUT; Render uses 45)
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
