@@ -123,19 +123,19 @@ Recommends a one-day route within the budget.
 
 ## GET /api/places
 
-Lists every place's name for the input screen's "places you must see" search. Sorted by name, case-insensitive. Send the chosen `name`s in `attractions` of `POST /api/recommendations`; the AI module puts a place whose name matches into the route.
+Lists every place for the input screen's "places you must see" search. Sorted by name, case-insensitive. The FE ranks places by similarity to what the traveler types: English against `name`, Korean against the name's sound and `description_ko`. Send the chosen `name`s in `attractions` of `POST /api/recommendations`; the AI module puts a place whose name matches into the route.
 
 ### Response `200 OK`
 
 ```json
 {
   "places": [
-    { "place_id": "MNL-0001", "name": "Fort Santiago", "category": "attraction", "district": "Intramuros" }
+    { "place_id": "MNL-0001", "name": "Fort Santiago", "category": "attraction", "district": "Intramuros", "description_ko": "스페인 식민지 시대의 성곽이에요." }
   ]
 }
 ```
 
-`district` can be `null`. An empty database gives `{ "places": [] }`.
+`district` and `description_ko` can be `null`. An empty database gives `{ "places": [] }`.
 
 ---
 

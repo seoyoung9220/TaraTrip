@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react'
 import { MAX_MUST_VISIT } from '../config.ts'
 import { useT } from '../lib/i18n.ts'
+import { norm, searchPlaces } from '../lib/placeSearch.ts'
 import { usePlaceList } from '../lib/usePlaceList.ts'
 import Icon from './Icon.tsx'
 
@@ -12,12 +13,8 @@ interface Props {
 
 const MAX_SUGGESTIONS = 6
 
-// Case, spaces and accents ignored: "pacopark" finds "Paco Park", "jose" finds "José".
-function norm(s: string): string {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()
-}
-
-// Type part of a name, pick a place from the list. If the list could not load,
+// Type a name, in English or Korean, typos allowed; the most similar places are listed
+// (lib/placeSearch.ts) and the traveler picks one. If the list could not load,
 // Enter adds the typed name as it is (the AI module still matches it by name).
 export default function MustVisitSearch({ value, onChange }: Props) {
   const t = useT()
@@ -28,10 +25,11 @@ export default function MustVisitSearch({ value, onChange }: Props) {
   const chosen = new Set(value.map(norm))
   const matches =
     q && places
-      ? places
-          .filter((p) => !chosen.has(norm(p.name)) && norm(p.name).includes(q))
-          .sort((a, b) => Number(!norm(b.name).startsWith(q)) - Number(!norm(a.name).startsWith(q)))
-          .slice(0, MAX_SUGGESTIONS)
+      ? searchPlaces(
+          query,
+          places.filter((p) => !chosen.has(norm(p.name))),
+          MAX_SUGGESTIONS,
+        )
       : []
   const freeTyping = places !== null && places.length === 0
 

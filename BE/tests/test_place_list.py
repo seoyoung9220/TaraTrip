@@ -32,16 +32,16 @@ def get(rows):
 
 def test_sorted_by_name_and_trimmed():
     res = get([
-        {"place_id": "MNL-0002", "name": "Paco Park", "category": "attraction", "district": "Paco"},
+        {"place_id": "MNL-0002", "name": "Paco Park", "category": "attraction", "district": "Paco", "description_ko": "조용한 정원이에요."},
         {"place_id": "MNL-0001", "name": "fort Santiago\n", "category": "attraction", "district": " Intramuros "},
         {"place_id": "MNL-0003", "name": "  ", "category": "shop", "district": None},
-        {"place_id": "MNL-0004", "name": "Kanamit", "category": "restaurant", "district": None},
+        {"place_id": "MNL-0004", "name": "Kanamit", "category": "restaurant", "district": None, "description_ko": None},
     ])
     assert res.status_code == 200
     assert res.json() == {"places": [
-        {"place_id": "MNL-0001", "name": "fort Santiago", "category": "attraction", "district": "Intramuros"},
-        {"place_id": "MNL-0004", "name": "Kanamit", "category": "restaurant", "district": None},
-        {"place_id": "MNL-0002", "name": "Paco Park", "category": "attraction", "district": "Paco"},
+        {"place_id": "MNL-0001", "name": "fort Santiago", "category": "attraction", "district": "Intramuros", "description_ko": None},
+        {"place_id": "MNL-0004", "name": "Kanamit", "category": "restaurant", "district": None, "description_ko": None},
+        {"place_id": "MNL-0002", "name": "Paco Park", "category": "attraction", "district": "Paco", "description_ko": "조용한 정원이에요."},
     ]}
 
 
