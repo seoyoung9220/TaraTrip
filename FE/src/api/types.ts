@@ -81,6 +81,8 @@ export interface PlaceSummary {
   name: string
   category: PlaceCategory
   district: string | null
+  /** Searched when the traveler types Korean (names are English). */
+  description_ko: string | null
 }
 
 export interface PlaceList {

@@ -251,6 +251,6 @@ export const mockRegions: Regions = { regions: ['Binondo', 'Intramuros'] }
 
 export const mockPlaceList: PlaceList = {
   places: [...new Map(MOCK_POOL.map((s) => [s.place_id, s])).values()]
-    .map((s) => ({ place_id: s.place_id, name: s.name, category: s.category, district: null }))
+    .map((s) => ({ place_id: s.place_id, name: s.name, category: s.category, district: null, description_ko: null }))
     .sort((a, b) => a.name.localeCompare(b.name)),
 }

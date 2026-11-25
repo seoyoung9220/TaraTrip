@@ -84,6 +84,7 @@ class PlaceSummary(BaseModel):
     name: str
     category: str
     district: str | None = None
+    description_ko: str | None = None
 
 
 class PlaceList(BaseModel):
@@ -92,14 +93,18 @@ class PlaceList(BaseModel):
 
 @router.get("/places", response_model=PlaceList)
 def list_places(conn: Annotated[Any, Depends(get_conn)]) -> PlaceList:  # psycopg.Connection
-    """Every place's name, for the input screen's "places you must see" search."""
-    rows = conn.execute("select place_id, name, category, district from places").fetchall()
+    """Every place's name, for the input screen's "places you must see" search.
+
+    description_ko lets a Korean query find a place (names are English). select *: works
+    before and after schema.sql adds description_ko, like get_place below."""
+    rows = conn.execute("select * from places").fetchall()
     places = [
         PlaceSummary(
             place_id=r["place_id"],
             name=(r["name"] or "").strip(),
             category=r["category"],
             district=(r.get("district") or "").strip() or None,
+            description_ko=(r.get("description_ko") or "").strip() or None,
         )
         for r in rows
         if (r["name"] or "").strip()
