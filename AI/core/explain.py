@@ -27,6 +27,24 @@ KO_ENDING = re.compile(r"요[.!~]?$")  # 해요체로 끝나야 함
 # "여행자는 ~를 좋아해서" 같은 제3자 말투 금지
 META = re.compile(r"여행자|이 사람|traveler|the user", re.I)
 # 가격·시간·거리는 코드가 이미 정확하게 보여주니까 LLM 문장에는 못 쓰게 함
+# 자주 틀리는 맞춤법은 고쳐서 씀: "선택이예요" → "선택이에요", "되요" → "돼요"
+def _fix_ko(text):
+    def iyeyo(m):
+        ch = m.group(1)
+        has_batchim = (ord(ch) - 0xAC00) % 28 != 0
+        return ch + ("이에요" if has_batchim else "예요")
+    text = re.sub(r"([가-힣])이예요", iyeyo, text)
+    text = re.sub(r"아니예요", "아니에요", text)
+    return text.replace("되요", "돼요")
+
+
+def _repeats(text):
+    """같은 두 단어 묶음이 한 문장에 두 번 나오면 True ("가족과 함께 … 가족과 함께")"""
+    words = re.findall(r"[가-힣A-Za-z]+", text)
+    pairs = list(zip(words, words[1:]))
+    return len(pairs) != len(set(pairs))
+
+
 NUMBERS = re.compile(r"[₱$]|페소|peso|php|\d+\s*(분|시간|시|km|원|min|hour)|\d{1,2}:\d{2}", re.I)
 
 LANG_RULE = {
@@ -58,6 +76,8 @@ Rules:
 - "reasons": exactly one entry per stop id, ONE short sentence each, saying why this stop suits the traveler's wishes.
   The place name is already shown above the sentence, so do NOT start with the place name.
   Use the stop's facts (description, signature item, tags).
+  If the stop matches something the traveler asked for (a food, an attraction or a word in free_text), say that link plainly.
+- Each stop has "time_of_day". Only call a meal breakfast, lunch or dinner if it matches that time. Never repeat a phrase within one sentence.
 - If "small_business" is true, you may warmly mention it is locally or family owned, but not for every stop.
 - Do NOT mention prices, money, times, durations, distances or transport. Those are shown elsewhere.
 - Do NOT invent facts that are not in the data (no architectural style, era or history unless the description says so).
@@ -84,6 +104,9 @@ def _stop_text(s):
         "tags": row.get("tags") or [],
         "small_business": bool(row.get("is_small_business")),
     }
+    if s.get("arrive"):  # 숫자 대신 때만 알려줌 (11시 반 식당을 "아침 식사"라고 쓰지 않게)
+        h = int(s["arrive"][:2])
+        data["time_of_day"] = "morning" if h < 11 else "midday" if h < 15 else "afternoon" if h < 18 else "evening"
     if row.get("signature_menu"):
         data["signature"] = row["signature_menu"]
     return data
@@ -99,6 +122,9 @@ def _clean(text, lang, limit):
     if NUMBERS.search(text) or META.search(text):
         return None  # 가격·시간을 지어냈거나, 제3자 말투
     if lang == "ko":
+        text = _fix_ko(text)
+        if _repeats(text):
+            return None  # 같은 말 반복
         if not HANGUL.search(text) or not KO_ALLOWED.match(text):
             return None  # 영어로 썼거나 다른 나라 글자가 섞임
         if not KO_ENDING.search(text):
