@@ -26,6 +26,7 @@ TaraTrip AI 모듈 ↔ 백엔드 연결부: docs/API.md 형식 그대로 입출�
     먹는 곳 최대 2곳(음식 선택 시 3곳, 8시간 이상이면 +1), 먹는 곳 3연속 금지
 """
 import logging
+import re
 import uuid
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -84,17 +85,25 @@ WALK_MAX_KM_LAZY = 0.5                # "걷기 싫어"면 이 거리까지만 �
 #   PENALTY_PER_POINT: 장소 점수 1점을 이동 몇 분과 같게 볼지. 크면 좋은 곳을 찾아 멀리 가고, 작으면 가까운 곳 위주
 #   기준점(선택한 지역의 중심, 없으면 출발지)에서 FREE_RADIUS_KM 넘게 떨어진 곳은 1km마다 FAR_PENALTY_PER_KM점 감점
 PENALTY_PER_POINT = 20
-FREE_RADIUS_KM = 2.0
-FAR_PENALTY_PER_KM = 2.0
+FREE_RADIUS_KM = 1.5
+FAR_PENALTY_PER_KM = 4.0
 # 임베딩이 없을 때(키 없음·실패) 고른 음식·관광지 단어가 장소 태그·설명에 있으면 주는 가산점
 KEYWORD_BONUS = 8
 # 같은 상황에서 소상공인 가산점: 취향에 맞으면 크게, 아니면 작게 (취향 우선 원칙, 임베딩 모드와 같은 생각)
 SMALL_BIZ_MATCH, SMALL_BIZ_OTHER = 5, 2
 MODE_KO = {"walk": "도보", "jeepney": "지프니", "tricycle": "트라이시클", "taxi": "택시", "other": "기타"}
-MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"으로 세는 DB 카테고리 (카페·빵집도 restaurant)
+MEAL_CATEGORIES = {"restaurant", "market"}           # "먹는 곳"이 될 수 있는 DB 카테고리 (카페·빵집도 restaurant)
 MAX_MEALS = 2                                         # 먹는 곳 최대 개수
 MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 먹거리 위주로 요청했을 때
 MAX_MEALS_IN_ROW = 2                                  # 먹는 곳 최대 연속 (밥 → 카페까지 OK)
+# 식사 시간: 식당은 점심·저녁 시간에만, 바는 오후 늦게부터, 식사끼리는 4시간 이상 간격 (카페·먹거리 시장은 아무 때나)
+MEAL_TIMES = {"breakfast": ["07:00", "10:30"], "lunch": ["11:00", "15:00"], "dinner": ["17:00", "20:30"],
+              "barFrom": "16:00", "gapMin": 240}
+# 장소 성격을 가르는 단어 (이름·태그에서 찾음)
+BAR_WORDS = ["bar", "pub", "craft beer", "cocktail", "nightlife"]
+SNACK_WORDS = ["cafe", "café", "coffee", "dessert", "bakery", "bakeries", "tea"]
+BREAKFAST_WORDS = ["breakfast", "silog", "diner", "brunch"]
+FOOD_MARKET_WORDS = ["food", "restaurant", "bakeries", "eat"]
 
 
 # ─────────────────────────────────────────────
@@ -138,6 +147,28 @@ def _cost(row):
     return spend, row.get("entry_fee") or 0
 
 
+def _has_word(text, words):
+    return any(re.search(rf"\b{re.escape(w)}\b", text) for w in words)
+
+
+def meal_kind(row):
+    """먹는 곳의 성격: "bar" / "snack"(카페·먹거리 시장) / "breakfast"(아침도 되는 식당) / "meal"(식당) / None(먹는 곳 아님)"""
+    cat = row.get("category")
+    if cat not in MEAL_CATEGORIES:
+        return None
+    name, tags = (row.get("name") or "").lower(), " ".join(row.get("tags") or []).lower()
+    if cat == "market":  # 시장은 먹거리 시장만 먹는 곳 (공예품·잡화 시장은 아님), 걸으면서 먹으니 시간 제한 없음
+        return "snack" if _has_word(tags, FOOD_MARKET_WORDS) else None
+    if _has_word(name, BAR_WORDS) or _has_word(tags, BAR_WORDS):
+        return "bar"
+    restaurant = _has_word(name + " " + tags, ["restaurant", "dining", "eatery", "kitchen", "food"])
+    if not restaurant and (_has_word(tags, SNACK_WORDS) or _has_word(name, SNACK_WORDS)):
+        return "snack"
+    if _has_word(tags, BREAKFAST_WORDS) or _has_word(name, BREAKFAST_WORDS):
+        return "breakfast"
+    return "meal"
+
+
 def to_internal_place(row, weekday):
     hours = _hours_for(row, weekday)
     if hours is None:
@@ -155,7 +186,8 @@ def to_internal_place(row, weekday):
         "stayMin": row.get("avg_stay_minutes") or DEFAULT_STAY.get(row.get("category"), 40),
         "costPhp": food + entry,
         "smallBiz": bool(row.get("is_small_business")),
-        "isMeal": row.get("category") in MEAL_CATEGORIES,
+        "isMeal": meal_kind(row) is not None,
+        "mealKind": meal_kind(row),
         "score": row.get("local_score") or DEFAULT_SCORE,
         "description": desc,
         # 응답 만들 때 다시 쓰는 원본 값
@@ -277,7 +309,7 @@ def _limits(query, req):
     max_stops = min(base + MAX_STOPS_EXTRA, max(1, js_round(base * hours / BASE_HOURS)))
     food_lover = bool(req.get("foods")) or any(t in ("food", "cafe") for t in query["tags"])
     max_meals = (MAX_MEALS_FOOD_LOVER if food_lover else MAX_MEALS) + (1 if hours >= LONG_DAY_HOURS else 0)
-    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW}
+    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW, "mealTimes": MEAL_TIMES}
 
 
 # ─────────────────────────────────────────────
@@ -444,7 +476,7 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
             "avoid": query["avoid"], "free_text": req.get("free_text"),
             "pace": query["pace"], "walking": query["walking"],
         }
-        explained = explain_route([{"row": s["_row"]} for s in stops], traveler, lang, llm)
+        explained = explain_route([{"row": s["_row"], "arrive": s["arrival_time"]} for s in stops], traveler, lang, llm)
         if explained["error"]:
             # 소개·이유가 템플릿으로 나간 이유를 서버 로그에서 볼 수 있게
             log.warning("explain fallback (intro=%s, reasons=%d/%d): %s", bool(explained["intro"]),

@@ -338,6 +338,50 @@ def test_end_location():
     assert one_way["total_cost"] == stops_cost + one_way["return_transport"]["cost"]
 
 
+def test_meal_times():
+    """식당은 점심·저녁 시간에만, 바는 16시부터, 식사끼리는 4시간 이상 떨어짐. 카페는 아무 때나"""
+    from recommend import meal_kind, to_min as tm
+    assert meal_kind({"category": "restaurant", "name": "Batala Bar", "tags": ["Restaurant", "café"]}) == "bar"
+    assert meal_kind({"category": "restaurant", "name": "Papa Kape", "tags": ["Filipino Coffee"]}) == "snack"
+    assert meal_kind({"category": "restaurant", "name": "Sincerity Cafe and Restaurant", "tags": []}) == "meal"
+    assert meal_kind({"category": "restaurant", "name": "Lola's", "tags": ["tapsilog", "silog"]}) == "breakfast"
+    assert meal_kind({"category": "market", "name": "Craft Hub", "tags": ["souvenirs"]}) is None
+    assert meal_kind({"category": "market", "name": "Ongpin", "tags": ["street food"]}) == "snack"
+
+    near = REQ["start_location"]
+    def row(i, name, cat, tags, dlat):
+        return {**ROWS[0], "place_id": f"T-{i}", "name": name, "category": cat, "tags": tags,
+                "lat": near["lat"] + dlat, "lng": near["lng"], "price_min": 100, "price_max": 100,
+                "entry_fee": 0, "avg_stay_minutes": 40, "local_score": 9,
+                "opening_hours": {d: "08:00-22:00" for d in DAYS}}
+    rows = [row(1, "Corner Bar", "restaurant", ["craft beer"], 0.001),
+            row(2, "Rice House", "restaurant", ["filipino food"], 0.002),
+            row(3, "Noodle House", "restaurant", ["filipino food"], 0.0025),
+            row(4, "Bean Cafe", "restaurant", ["coffee"], 0.003),
+            row(5, "Old Church", "attraction", ["church"], 0.0015)]
+    kinds = {r["name"]: meal_kind(r) for r in rows}
+    res = recommend({**REQ, "foods": ["filipino food"], "start_time": "10:00", "end_time": "21:00",
+                     "budget": {"amount": 3000, "currency": "PHP"}}, rows, travel_date=TUE)
+    meals = []
+    for s in res["stops"]:
+        t, k = tm(s["arrival_time"]), kinds[s["name"]]
+        if k == "bar":
+            assert t >= tm("16:00"), s
+        if k == "meal":
+            assert tm("11:00") <= t <= tm("15:00") or tm("17:00") <= t <= tm("20:30"), s
+        if k in ("meal", "bar"):
+            meals.append(t)
+    assert meals and all(b - a >= 240 for a, b in zip(meals, meals[1:])), res["stops"]
+
+
+def test_explain_cleanup():
+    """LLM 문장 다듬기: 흔한 맞춤법은 고치고, 같은 말 반복은 버림"""
+    from core.explain import _clean
+    assert _clean("좋은 선택이예요.", "ko", 90) == "좋은 선택이에요."
+    assert _clean("조용한 곳이예요.", "ko", 90) == "조용한 곳이에요."
+    assert _clean("가족과 함께 즐기는 공원으로, 가족과 함께 산책하기 좋아요.", "ko", 90) is None
+
+
 if __name__ == "__main__":
     tests = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for t in tests:
