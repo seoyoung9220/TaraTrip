@@ -98,7 +98,13 @@ MAX_MEALS_FOOD_LOVER = 3                              # 음식을 고르거나 �
 MAX_MEALS_IN_ROW = 2                                  # 먹는 곳 최대 연속 (밥 → 카페까지 OK)
 # 식사 시간: 식당은 점심·저녁 시간에만, 바는 오후 늦게부터, 식사끼리는 4시간 이상 간격 (카페·먹거리 시장은 아무 때나)
 MEAL_TIMES = {"breakfast": ["07:00", "10:30"], "lunch": ["11:00", "15:00"], "dinner": ["17:00", "20:30"],
-              "barFrom": "16:00", "gapMin": 240}
+              "barFrom": "16:00", "gapMin": 240, "gapMaxMin": 360}
+# 활동적인 곳 (여기 있던 시간과 걷는 시간만큼 다음 식사가 빨라짐: 많이 움직이면 4시간, 거의 안 움직이면 6시간 뒤)
+ACTIVE_WORDS = ["park", "outdoor", "walking", "hiking", "cycling", "nature", "fortress", "fort", "zoo", "promenade",
+                "waterfront", "wildlife", "recreation", "eco-tourism", "tour", "shopping", "market", "mall",
+                "bargain", "food crawl", "beach", "garden"]
+ROUTE_TIME_LIMIT_SEC = 3.0   # 동선 최적화 시간 상한 (Render 무료 서버처럼 느린 곳에서 시간 초과 방지)
+MAX_PER_FOOD = 1   # 고른 음식 하나당 그 음식이 있는 곳은 한 곳만 (할로할로를 두 번 먹으러 가지 않게)
 # 장소 성격을 가르는 단어 (이름·태그에서 찾음)
 BAR_WORDS = ["bar", "pub", "craft beer", "cocktail", "nightlife"]
 SNACK_WORDS = ["cafe", "café", "coffee", "dessert", "bakery", "bakeries", "tea"]
@@ -188,6 +194,8 @@ def to_internal_place(row, weekday):
         "smallBiz": bool(row.get("is_small_business")),
         "isMeal": meal_kind(row) is not None,
         "mealKind": meal_kind(row),
+        "active": meal_kind(row) is None and _has_word(
+            " ".join([row.get("name") or "", *(row.get("tags") or [])]).lower(), ACTIVE_WORDS),
         "score": row.get("local_score") or DEFAULT_SCORE,
         "description": desc,
         # 응답 만들 때 다시 쓰는 원본 값
@@ -284,6 +292,19 @@ def _keyword_bonus(plan_input, req):
             p["score"] += SMALL_BIZ_MATCH if hit else SMALL_BIZ_OTHER
 
 
+def _food_groups(plan_input, req):
+    """고른 음식마다 그 음식이 이름·설명·태그·대표 메뉴에 나오는 먹는 곳을 한 그룹으로 묶음 (그룹마다 한 곳만 감)"""
+    foods = [f.lower().strip() for f in req.get("foods") or [] if isinstance(f, str) and f.strip()]
+    for p in plan_input["places"]:
+        if not p.get("isMeal"):
+            continue
+        row = p["_row"]
+        text = " ".join([row["name"], row.get("description") or "", row.get("description_ko") or "",
+                         " ".join(row.get("tags") or []), row.get("signature_menu") or "",
+                         row.get("signature_menu_ko") or ""]).lower()
+        p["groups"] = [f"food:{f}" for f in foods if f in text]
+
+
 def _anchor(query, places, start_location):
     """거리 기준점: 선택한 지역(region)에 장소가 있으면 그 장소들의 중심, 없으면 출발지"""
     inside = [p for p in places if p["area"] in query["areas"]]
@@ -309,7 +330,8 @@ def _limits(query, req):
     max_stops = min(base + MAX_STOPS_EXTRA, max(1, js_round(base * hours / BASE_HOURS)))
     food_lover = bool(req.get("foods")) or any(t in ("food", "cafe") for t in query["tags"])
     max_meals = (MAX_MEALS_FOOD_LOVER if food_lover else MAX_MEALS) + (1 if hours >= LONG_DAY_HOURS else 0)
-    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW, "mealTimes": MEAL_TIMES}
+    return {"maxStops": max_stops, "maxMeals": max_meals, "maxMealsInRow": MAX_MEALS_IN_ROW, "mealTimes": MEAL_TIMES,
+            "maxPerGroup": MAX_PER_FOOD}
 
 
 # ─────────────────────────────────────────────
@@ -420,6 +442,8 @@ def recommend(req, place_rows, *, call_llm=None, embed=None, travel_date=None, l
         "walkMaxKm": WALK_MAX_KM_LAZY if query["walking"] == "minimal" else TRANSPORT["walkMaxKm"],
     }
     plan_input["options"]["penaltyPerPoint"] = PENALTY_PER_POINT
+    plan_input["options"]["timeLimitSec"] = ROUTE_TIME_LIMIT_SEC
+    _food_groups(plan_input, req)
     if personal is None:
         _keyword_bonus(plan_input, req)
     # plan_route가 따로 더하던 소상공인 가산점도 점수에 미리 넣어서, 거리 감점이 모든 가산점 뒤에 오게 함

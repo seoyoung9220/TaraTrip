@@ -374,6 +374,53 @@ def test_meal_times():
     assert meals and all(b - a >= 240 for a, b in zip(meals, meals[1:])), res["stops"]
 
 
+def test_same_food_once():
+    """식당끼리는 4시간 간격, 카페·디저트는 그 사이 아무 때나. 고른 음식(할로할로)이 있는 곳은 한 곳만"""
+    from recommend import meal_kind, to_min as tm
+    near = REQ["start_location"]
+    def row(i, name, tags, menu, dlat):
+        return {**ROWS[0], "place_id": f"H-{i}", "name": name, "category": "restaurant", "tags": tags,
+                "signature_menu": menu, "description": "", "lat": near["lat"] + dlat, "lng": near["lng"],
+                "price_min": 100, "price_max": 100, "entry_fee": 0, "avg_stay_minutes": 30, "local_score": 9,
+                "opening_hours": {d: "08:00-22:00" for d in DAYS}}
+    rows = [row(1, "Kape Corner", ["coffee"], "halo-halo", 0.001),
+            row(2, "Halo Stand", ["dessert"], "halo-halo", 0.0015),
+            row(3, "Inasal House", ["grill"], "chicken inasal", 0.002),
+            row(4, "Siopao Shop", ["filipino food"], "siopao and halo-halo", 0.0025),
+            {**ROWS[0], "place_id": "H-5", "name": "Old Fort", "category": "attraction", "tags": ["history"],
+             "lat": near["lat"] + 0.003, "lng": near["lng"], "entry_fee": 0, "avg_stay_minutes": 60,
+             "local_score": 9, "opening_hours": {d: "08:00-22:00" for d in DAYS}}]
+    kinds = {r["name"]: meal_kind(r) for r in rows}
+    res = recommend({**REQ, "foods": ["halo-halo"], "start_time": "10:00", "end_time": "18:00",
+                     "budget": {"amount": 3000, "currency": "PHP"}}, rows, travel_date=TUE)
+    names = [s["name"] for s in res["stops"]]
+    assert sum(n in ("Kape Corner", "Halo Stand", "Siopao Shop") for n in names) <= 1, names
+    meals = [tm(s["arrival_time"]) for s in res["stops"] if kinds[s["name"]] in ("meal", "breakfast", "bar")]
+    assert all(b - a >= 240 for a, b in zip(meals, meals[1:])), res["stops"]
+
+
+def test_meal_gap_follows_activity():
+    """점심 뒤 공원에서 많이 움직이면 4시간 뒤, 박물관에만 있었으면 6시간 뒤에 저녁"""
+    from recommend import to_min as tm
+    near = REQ["start_location"]
+    def place(i, name, cat, tags, stay, dlat):
+        return {**ROWS[0], "place_id": f"G-{i}", "name": name, "category": cat, "tags": tags,
+                "lat": near["lat"] + dlat, "lng": near["lng"], "price_min": 100, "price_max": 100,
+                "entry_fee": 0, "avg_stay_minutes": stay, "local_score": 9, "signature_menu": "",
+                "description": "", "opening_hours": {d: "08:00-22:00" for d in DAYS}}
+    def dinner_gap(third):
+        rows = [place(1, "Lunch House", "restaurant", ["sinigang"], 60, 0.0005),
+                place(2, "Dinner House", "restaurant", ["grill"], 60, 0.001), third]
+        res = recommend({**REQ, "foods": [], "start_time": "13:00", "end_time": "21:30",
+                         "budget": {"amount": 3000, "currency": "PHP"}}, rows, travel_date=TUE)
+        t = {s["name"]: tm(s["arrival_time"]) for s in res["stops"]}
+        assert "Lunch House" in t and "Dinner House" in t, res["stops"]
+        return abs(t["Dinner House"] - t["Lunch House"])
+    park = dinner_gap(place(3, "Big Park", "attraction", ["park", "outdoor"], 180, 0.0008))
+    museum = dinner_gap(place(4, "Quiet Museum", "attraction", ["museum"], 180, 0.0008))
+    assert 240 <= park < museum and museum >= 340, (park, museum)
+
+
 def test_explain_cleanup():
     """LLM 문장 다듬기: 흔한 맞춤법은 고치고, 같은 말 반복은 버림"""
     from core.explain import _clean
