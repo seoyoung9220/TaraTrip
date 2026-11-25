@@ -1,7 +1,8 @@
-"""GET /api/places/{place_id} (docs/API.md section 2)."""
+"""GET /api/places and GET /api/places/{place_id} (docs/API.md section 2)."""
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from app.db import get_conn
 from app.errors import ApiError
@@ -76,6 +77,34 @@ def to_place_detail(row: dict, lang: str = "en") -> PlaceDetail:
         description=description,
         photos=row["photos"] or [],
     )
+
+
+class PlaceSummary(BaseModel):
+    place_id: str
+    name: str
+    category: str
+    district: str | None = None
+
+
+class PlaceList(BaseModel):
+    places: list[PlaceSummary]
+
+
+@router.get("/places", response_model=PlaceList)
+def list_places(conn: Annotated[Any, Depends(get_conn)]) -> PlaceList:  # psycopg.Connection
+    """Every place's name, for the input screen's "places you must see" search."""
+    rows = conn.execute("select place_id, name, category, district from places").fetchall()
+    places = [
+        PlaceSummary(
+            place_id=r["place_id"],
+            name=(r["name"] or "").strip(),
+            category=r["category"],
+            district=(r.get("district") or "").strip() or None,
+        )
+        for r in rows
+        if (r["name"] or "").strip()
+    ]
+    return PlaceList(places=sorted(places, key=lambda p: p.name.casefold()))
 
 
 @router.get("/places/{place_id}", response_model=PlaceDetail)

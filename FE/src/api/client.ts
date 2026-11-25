@@ -1,4 +1,4 @@
-import { mockExchangeRate, mockPlace, mockRegions, mockRouteFor } from './mock.ts'
+import { mockExchangeRate, mockPlace, mockPlaceList, mockRegions, mockRouteFor } from './mock.ts'
 import {
   ApiError,
   type ApiErrorCode,
@@ -7,6 +7,7 @@ import {
   type MerchantPlaceCreated,
   type MerchantPlaceInput,
   type PlaceDetail,
+  type PlaceList,
   type Promo,
   type PromoRequest,
   type Recommendation,
@@ -85,6 +86,11 @@ export async function getPlace(placeId: string, lang: 'ko' | 'en'): Promise<Plac
 export function getExchangeRate(): Promise<ExchangeRate> {
   if (USE_MOCK) return delay(mockExchangeRate)
   return request('/exchange-rate')
+}
+
+export function getPlaceList(): Promise<PlaceList> {
+  if (USE_MOCK) return delay(mockPlaceList)
+  return request('/places')
 }
 
 export function getRegions(): Promise<Regions> {

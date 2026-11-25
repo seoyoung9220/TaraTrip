@@ -121,6 +121,24 @@ Recommends a one-day route within the budget.
 
 ---
 
+## GET /api/places
+
+Lists every place's name for the input screen's "places you must see" search. Sorted by name, case-insensitive. Send the chosen `name`s in `attractions` of `POST /api/recommendations`; the AI module puts a place whose name matches into the route.
+
+### Response `200 OK`
+
+```json
+{
+  "places": [
+    { "place_id": "MNL-0001", "name": "Fort Santiago", "category": "attraction", "district": "Intramuros" }
+  ]
+}
+```
+
+`district` can be `null`. An empty database gives `{ "places": [] }`.
+
+---
+
 ## GET /api/places/{place_id}
 
 Returns details for one place.
