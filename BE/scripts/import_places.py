@@ -198,16 +198,33 @@ def read_sheet(path: Path) -> tuple[list[dict], list[str]]:
     return good, errors
 
 
+# Korean copy -> the English column it translates. Filled by scripts/translate_places.py.
+KO_COLUMNS = {"description_ko": "description", "signature_menu_ko": "signature_menu"}
+
+
+def upsert_sql(with_ko: bool) -> str:
+    cols = ", ".join(DB_COLUMNS)
+    marks = ", ".join(["%s"] * len(DB_COLUMNS))
+    updates = [f"{c} = excluded.{c}" for c in DB_COLUMNS if c != "place_id"]
+    if with_ko:
+        # A replaced or reworded place must not keep the old place's Korean text: clear it
+        # so the app shows English until translate_places.py runs again. (SET expressions
+        # see the row before the update, so places.{en} is still the old English.)
+        updates += [f"{ko} = case when places.{en} is distinct from excluded.{en} "
+                    f"then null else places.{ko} end" for ko, en in KO_COLUMNS.items()]
+    return (f"insert into places ({cols}) values ({marks}) "
+            f"on conflict (place_id) do update set {', '.join(updates)} "
+            "returning (xmax = 0) as inserted")
+
+
 def upsert(conn, rows: list[dict]) -> tuple[int, int]:
     """Insert or update every row on `conn`. Returns (new, updated). Caller commits."""
     from psycopg.types.json import Jsonb
 
-    cols = ", ".join(DB_COLUMNS)
-    marks = ", ".join(["%s"] * len(DB_COLUMNS))
-    updates = ", ".join(f"{c} = excluded.{c}" for c in DB_COLUMNS if c != "place_id")
-    sql = (f"insert into places ({cols}) values ({marks}) "
-           f"on conflict (place_id) do update set {updates} "
-           "returning (xmax = 0) as inserted")
+    with_ko = conn.execute(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'places' and column_name = 'description_ko'").fetchone()[0] > 0
+    sql = upsert_sql(with_ko)
     inserted = 0
     for r in rows:
         values = [Jsonb(r[c]) if c == "opening_hours" else r[c] for c in DB_COLUMNS]
@@ -237,7 +254,8 @@ def main():
     load_dotenv(BE_DIR / ".env")
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:  # one transaction: all or nothing
         inserted, updated = upsert(conn, rows)
-    print(f"Imported {len(rows)} place(s): {inserted} new, {updated} updated.")
+    print(f"Imported {len(rows)} place(s): {inserted} new, {updated} updated.\n"
+          "Korean text was cleared where the English changed; run scripts/translate_places.py.")
 
 
 if __name__ == "__main__":
