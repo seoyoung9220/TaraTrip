@@ -73,6 +73,7 @@ Full-stack work is split **by feature, not by frontend/backend**. Each person bu
 - **Map view** with route order and the estimated cost of each stop
 - Recommendation API: receives requests from the frontend, calls the AI module, returns the result
 - Place detail API and screen
+- Frontend deployment on Vercel
 - Integration in Week 4; owns the demo flow
 
 ### Full-stack B, Data, Business & Infra: Hyungeun Kim
@@ -82,7 +83,7 @@ Full-stack work is split **by feature, not by frontend/backend**. Each person bu
 - Place list and search API (the AI module uses it to fetch candidate places)
 - Business registration and edit screens and API
 - *(Stretch)* Promotion assistant UI, connected to the AI prompts
-- Final deployment, stability and bug fixes
+- Backend deployment on Render, stability and bug fixes
 
 ### Shared
 - **Fix the API spec (request/response JSON) together in Week 1.** All parallel work builds on it.
@@ -98,7 +99,7 @@ Full-stack work is split **by feature, not by frontend/backend**. Each person bu
 | 1 | Review criteria, choose LLM API, design output format | Wireframes / screen design | Tech stack, repo, DB schema, data template | Pick target region, define criteria and personas |
 | 2 | Draft rule filters and route generation (dummy data) | Input and result screens | DB and server, place API, import script | Collect local data |
 | 3 | Connect real data, budget split, explanations | Map integration, connect recommendation API | Load real data, business features | Fill data gaps, business model |
-| 4 | Apply UST feedback to the logic | Integration, prototype complete | Deployment, *(stretch)* promotion assistant | User testing, validate routes |
+| 4 | Apply UST feedback to the logic | Integration, prototype complete, Vercel deployment | Backend deployment (Render), *(stretch)* promotion assistant | User testing, validate routes |
 | 5 | Stabilize recommendations for the demo | Polish the demo scenario | Bug fixes, server stability | Provide local materials for the presentation |
 
 ## Repository Structure
@@ -352,6 +353,7 @@ TaraTrip은 여행자의 위치, 선호 음식, 가고 싶은 관광지, 하루 
 - 경로 순서와 장소별 예상 비용을 보여 주는 **지도 화면**
 - 추천 API: 프론트엔드 요청을 받아 AI 모듈을 호출하고 결과를 돌려줌
 - 장소 상세 API와 화면
+- Vercel 프론트엔드 배포
 - 4주차 통합, 데모 흐름 담당
 
 #### 풀스택 B, 데이터·소상공인·인프라: 김형은
@@ -361,7 +363,7 @@ TaraTrip은 여행자의 위치, 선호 음식, 가고 싶은 관광지, 하루 
 - 장소 목록·검색 API (AI 모듈이 후보 장소를 가져올 때 사용)
 - 소상공인 등록·수정 화면과 API
 - *(추가 목표)* 홍보 도우미 UI, AI 프롬프트와 연결
-- 최종 배포, 안정화, 버그 수정
+- Render 백엔드 배포, 안정화, 버그 수정
 
 #### 공통
 - **1주차에 API 명세(요청·응답 JSON)를 함께 확정합니다.** 모든 병렬 작업이 이 명세를 기준으로 진행됩니다.
@@ -377,7 +379,7 @@ TaraTrip은 여행자의 위치, 선호 음식, 가고 싶은 관광지, 하루 
 | 1 | 추천 기준 검토, LLM API 선택, 출력 형식 설계 | 와이어프레임 / 화면 설계 | 기술 스택, 레포, DB 스키마, 데이터 양식 | 대상 지역 선정, 추천 기준·페르소나 정리 |
 | 2 | 규칙 필터·경로 생성 초안 (더미 데이터) | 입력·결과 화면 | DB와 서버, 장소 API, 적재 스크립트 | 현지 데이터 수집 |
 | 3 | 실제 데이터 연결, 예산 배분, 추천 설명 | 지도 연동, 추천 API 연결 | 실제 데이터 적재, 소상공인 기능 | 데이터 보완, 비즈니스 모델 |
-| 4 | UST 피드백을 로직에 반영 | 통합, 프로토타입 완성 | 배포, *(추가 목표)* 홍보 도우미 | 사용자 테스트, 추천 경로 검증 |
+| 4 | UST 피드백을 로직에 반영 | 통합, 프로토타입 완성, Vercel 배포 | 백엔드 배포 (Render), *(추가 목표)* 홍보 도우미 | 사용자 테스트, 추천 경로 검증 |
 | 5 | 데모용 추천 안정화 | 데모 시나리오 다듬기 | 버그 수정, 서버 안정화 | 발표용 현지 자료 제공 |
 
 ### 저장소 구조
